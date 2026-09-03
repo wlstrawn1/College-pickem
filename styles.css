@@ -401,3 +401,44 @@ nav{
     padding:0 12px 12px !important;
   }
 }
+
+/* V6.2.4 — balanced vintage banner */
+.hero-wrap{
+  max-width:1500px !important;
+  width:100% !important;
+  margin:0 auto !important;
+  padding:14px 24px 0 !important;
+  box-sizing:border-box !important;
+  display:flex !important;
+  justify-content:center !important;
+  align-items:center !important;
+  background:#05090d !important;
+}
+.hero-image{
+  width:auto !important;
+  max-width:100% !important;
+  height:320px !important;
+  max-height:320px !important;
+  aspect-ratio:auto !important;
+  object-fit:contain !important;
+  object-position:center !important;
+  border-radius:10px !important;
+  background:#050505 !important;
+}
+
+@media(max-width:900px){
+  .hero-image{
+    height:250px !important;
+    max-height:250px !important;
+  }
+}
+@media(max-width:600px){
+  .hero-wrap{
+    padding:8px 12px 0 !important;
+  }
+  .hero-image{
+    width:100% !important;
+    height:auto !important;
+    max-height:none !important;
+  }
+}

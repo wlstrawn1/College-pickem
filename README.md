@@ -1,16 +1,15 @@
-# College Pick'em V6.2.3 — Full Banner Fix
+# College Pick'em V6.2.4 — Balanced Banner
 
-This fixes the V6.2.2 banner layout.
+This version reduces the oversized V6.2.3 banner.
 
-The issue:
-- The image itself was correct.
-- The old CSS still constrained it to a small thumbnail width and positioned the page title beside it.
-
-V6.2.3:
-- Makes the vintage artwork span the full content width as a true banner.
-- Shows the complete image with no intentional cropping.
-- Moves College Pick'em title and navigation below the banner.
-- Keeps all V6.2.1 interaction fixes and V6.2.2 artwork.
+Changes:
+- Keeps the entire vintage artwork visible.
+- Centers the banner.
+- Caps desktop banner height at 320px.
+- Caps tablet banner height at 250px.
+- Mobile remains responsive.
+- Keeps title/navigation below the banner.
+- All V6.2.1 interaction fixes remain.
 
 Upload/replace:
 - index.html
