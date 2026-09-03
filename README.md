@@ -1,32 +1,21 @@
-# College Pick'em V6 — Multi-Week + Test Mode
+# College Pick'em V6.1 — Hero Banner + Visual Refresh
 
-V6 adds the multi-week foundation:
-- Week selector across the app
-- Admin-only Create Test Week
-- TEST MODE banner
-- Reset Test Week clears test submissions without touching real weeks
-- Test entries are marked and excluded from future real standings
-- Results tab foundation
-- Season leaderboard foundation
-- Each week has its own Central Time lock deadline
-- My Picks / Picks switch with the selected week
-- Cache busting bumped to v6
+New in V6.1:
+- Adds the CFB Pick'em artwork as a responsive hero banner at the top of the site.
+- Keeps the v6.1 version badge visible in the navigation/header area.
+- Refines the layout to more closely match the mockup:
+  - darker sports-style header/navigation
+  - red active nav/pick accents
+  - cleaner matchup cards
+  - lighter pick buttons
+  - stronger selected-pick styling
+- Keeps all V6 multi-week/test-mode features and Firestore rules.
 
-Still included:
-- Nick Saban name example
-- Forgot password + junk/spam reminder
-- Full matchup + spread display
-- Confirmation screen
-- Edit My Picks until lock
-- Automatic locked UI after deadline
+Upload these files to the root of your GitHub Pages repo:
+- index.html
+- styles.css
+- app.js
+- cfb-pickem-banner.jpeg
+- README.md
 
-IMPORTANT FIRESTORE RULES UPDATE:
-V6 includes stronger rules:
-1. Players can only change their own picks before that week's lock time.
-2. Other players cannot read someone else's entries until after the lock.
-3. Admin can manage weeks and entries.
-
-Publish the included `firestore.rules` in Firebase before relying on lock/privacy behavior.
-
-Upload `index.html`, `styles.css`, `app.js`, and `README.md` to GitHub.
-Then publish `firestore.rules` in Firebase Console > Firestore Database > Rules.
+The included firestore.rules are unchanged from V6. If you already published the V6 rules, you do not need to republish them.

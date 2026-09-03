@@ -50,3 +50,109 @@ select{width:100%;padding:11px 38px 11px 12px;margin:7px 0;background:#0d1117;co
 .result-row{display:grid;grid-template-columns:1fr auto;gap:12px;padding:12px 0;border-top:1px solid #30363d}
 .result-final{font-weight:700}
 @media(max-width:600px){.week-toolbar{align-items:stretch;flex-direction:column}.week-toolbar>div:first-child{min-width:0}.admin-actions{flex-direction:column}}
+
+.hero-wrap{
+  max-width:1200px;
+  margin:0 auto;
+  background:#111820;
+  overflow:hidden;
+}
+.hero-image{
+  width:100%;
+  display:block;
+  aspect-ratio:16/5.2;
+  object-fit:cover;
+  object-position:center 44%;
+}
+header{
+  max-width:1200px;
+  margin:0 auto;
+  background:#0b131b;
+  padding:14px 28px;
+  border-bottom:0;
+}
+.brand-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.version-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:34px;
+  height:28px;
+  padding:0 8px;
+  border-radius:7px;
+  background:#d9c18a;
+  color:#111820;
+  font-size:13px;
+  font-weight:800;
+  border:1px solid #efd79e;
+}
+nav{
+  max-width:1200px;
+  margin:0 auto;
+  background:#0b131b;
+  padding:0 28px 14px;
+  border-bottom:1px solid #26313a;
+}
+nav button{
+  background:transparent;
+  border-color:transparent;
+  font-weight:700;
+}
+nav button.active{
+  background:transparent;
+  border-color:transparent;
+  color:#ff3b30;
+}
+main{
+  max-width:1200px;
+}
+.card{
+  background:#171d24;
+}
+.week-toolbar{
+  max-width:none;
+}
+.game{
+  background:#11171d;
+  border:1px solid #29323a;
+  border-radius:10px;
+  padding:14px 16px;
+  margin:10px 0;
+}
+.game+.game{
+  border-top:1px solid #29323a;
+}
+.choice{
+  background:#f4f1ea;
+  color:#161616;
+  border-color:#cfc8bc;
+  font-weight:700;
+}
+.choice.selected{
+  background:#d91f26;
+  color:#fff;
+  outline:none;
+  border-color:#e03239;
+}
+.primary{
+  background:#d91f26;
+  border-color:#e03239;
+}
+.test-banner{
+  background:#2a2310;
+}
+@media(max-width:700px){
+  .hero-image{
+    aspect-ratio:16/7.2;
+    object-position:center 42%;
+  }
+  header,nav{
+    padding-left:18px;
+    padding-right:18px;
+  }
+}
