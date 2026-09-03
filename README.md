@@ -1,43 +1,8 @@
-# College Pick'em Prototype
+# College Pick'em V2 — Firebase
+1. Firebase > Firestore > Rules: replace the rules with `firestore.rules` and click Publish.
+2. Upload `index.html`, `styles.css`, and `app.js` to the GitHub repo root, replacing the old files.
+3. You may also upload `firestore.rules` and this README for reference.
+4. Test Google/email sign-in and save a profile/picks.
+5. After William creates his profile, in Firestore > Data > users > William's UID document, change `role` from `player` to `admin`.
 
-This is a no-backend prototype for the college football ATS pick'em league.
-
-## What is included
-
-- Mobile-friendly weekly picks page
-- 20-game Week 1 slate
-- Automatic 3 / 2 / 1 point display
-- Game of the Week score-prediction tiebreaker
-- Season ATS pot opt-in
-- Pick persistence using browser localStorage
-- Submit / lock behavior for the prototype
-- Weekly leaderboard
-- Results screen
-- My Picks screen
-- Commissioner admin mockup
-- Payment / automation status mockup
-
-## Run it
-
-No install is required.
-
-1. Download/unzip the project.
-2. Double-click `index.html`.
-3. It opens in your browser.
-
-For GitHub Pages, upload all project files to the root of a repository, then enable Pages from the repository settings.
-
-## Next build
-
-The next version should replace localStorage/sample data with:
-
-1. Firebase Authentication
-2. Firestore league data
-3. Commissioner-only admin permissions
-4. Sports data API for schedules, rankings, spreads and finals
-5. Automatic ATS grading
-6. Weekly + season standings
-7. Post-lock public pick matrix
-8. Paid/unpaid tracking
-9. Editable weekly slate and point values
-10. Optional custom domain
+V2 includes Firebase authentication, Firestore profiles, real saved Week 1 picks, cross-device persistence, and an admin-role foundation. Next: commissioner slate editor, lock deadlines, pick matrix, live scores/spreads, grading, and standings.
