@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>College Pick'em</title>
-  <link rel="stylesheet" href="styles.css?v=5.1">
+  <link rel="stylesheet" href="styles.css?v=6">
 </head>
 <body>
 <header>
   <div>
     <h1>College Pick'em</h1>
-    <p>Against the Spread • 2026 <span style="color:#8b949e;font-size:12px">v5.1</span></p>
+    <p>Against the Spread • 2026 <span style="color:#8b949e;font-size:12px">v6</span></p>
   </div>
   <div id="authBox"></div>
 </header>
@@ -19,6 +19,7 @@
   <button data-tab="picks" class="active">Picks</button>
   <button data-tab="mypicks">My Picks</button>
   <button data-tab="leaderboard">Leaderboard</button>
+  <button data-tab="results">Results</button>
   <button data-tab="admin" id="adminTab" hidden>Admin</button>
 </nav>
 
@@ -52,6 +53,13 @@
   </section>
 
   <section id="appArea" hidden>
+    <div class="week-toolbar card">
+      <div>
+        <label for="weekSelect"><strong>Week</strong></label>
+        <select id="weekSelect"></select>
+      </div>
+      <div id="testBanner" class="test-banner" hidden>TEST MODE — Does Not Affect Standings</div>
+    </div>
     <div id="picks" class="tab active">
       <div class="card">
         <div class="section-head">
@@ -124,8 +132,18 @@
 
     <div id="leaderboard" class="tab">
       <div class="card">
-        <h2>Leaderboard</h2>
-        <p>Real standings will populate here once games are graded.</p>
+        <h2>Season Leaderboard</h2>
+        <p class="helper">Real weeks count toward the season. Test weeks are always excluded.</p>
+        <div id="seasonLeaderboard"><p>No graded real weeks yet.</p></div>
+      </div>
+    </div>
+
+
+    <div id="results" class="tab">
+      <div class="card">
+        <h2 id="resultsTitle">Results</h2>
+        <p id="resultsStatus" class="muted"></p>
+        <div id="resultsView"></div>
       </div>
     </div>
 
@@ -142,13 +160,18 @@
 
         <p class="timezone-note">Time Zone: Central Time (America/Chicago)</p>
 
-        <button id="publishWeek" class="primary">Publish Week</button>
+        <div class="admin-actions">
+          <button id="publishWeek" class="primary">Publish / Update Week</button>
+          <button id="createTestWeek">Create Test Week</button>
+          <button id="resetTestWeek">Reset Test Week</button>
+        </div>
+        <p class="helper">Test weeks are for trying the full workflow and never count toward real standings.</p>
         <p id="adminMsg" class="msg"></p>
       </div>
     </div>
   </section>
 </main>
 
-<script type="module" src="app.js?v=5.1"></script>
+<script type="module" src="app.js?v=6"></script>
 </body>
 </html>

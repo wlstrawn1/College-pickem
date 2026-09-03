@@ -6,18 +6,20 @@ service cloud.firestore {
       return signedIn() &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
     }
+    function weekDoc(weekId) {
+      return get(/databases/$(database)/documents/weeks/$(weekId));
+    }
+    function beforeLock(weekId) {
+      return !weekDoc(weekId).data.keys().hasAny(['lockAt']) ||
+             request.time < weekDoc(weekId).data.lockAt;
+    }
 
     match /users/{uid} {
-      allow create: if signedIn()
-        && request.auth.uid == uid
-        && request.resource.data.role == "player";
-
+      allow create: if signedIn() && request.auth.uid == uid &&
+                    request.resource.data.role == "player";
       allow read: if signedIn();
-
-      allow update: if signedIn()
-        && request.auth.uid == uid
-        && request.resource.data.role == resource.data.role;
-
+      allow update: if signedIn() && request.auth.uid == uid &&
+                    request.resource.data.role == resource.data.role;
       allow delete: if isAdmin();
     }
 
@@ -31,8 +33,14 @@ service cloud.firestore {
       }
 
       match /entries/{uid} {
-        allow read: if signedIn();
-        allow create, update: if signedIn() && request.auth.uid == uid;
+        // Own picks are always readable. Admins can read all.
+        // Other players can read entries only after the weekly lock.
+        allow read: if signedIn() &&
+          (request.auth.uid == uid || isAdmin() || !beforeLock(weekId));
+
+        allow create, update: if signedIn() &&
+          request.auth.uid == uid && beforeLock(weekId);
+
         allow delete: if isAdmin();
       }
     }
