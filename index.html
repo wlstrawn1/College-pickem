@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>College Pick'em</title>
-  <link rel="stylesheet" href="styles.css?v=6.1">
+  <link rel="stylesheet" href="styles.css?v=6.2">
 </head>
 <body>
 
@@ -15,7 +15,7 @@
 <header>
   <div class="brand-row">
     <h1>College Pick'em</h1>
-    <span class="version-badge">v6.1</span>
+    <span class="version-badge">v6.2</span>
   </div>
   <div id="authBox"></div>
 </header>
@@ -58,29 +58,47 @@
   </section>
 
   <section id="appArea" hidden>
-    <div class="week-toolbar card">
-      <div>
-        <label for="weekSelect"><strong>Week</strong></label>
-        <select id="weekSelect"></select>
+    <div class="dashboard-grid">
+      <div class="summary-card">
+        <div class="summary-card-title">Week Selector</div>
+        <select id="weekSelectTop"></select>
+        <div id="weekLockTop" class="summary-card-line">Lock: Not set</div>
+        <div id="weekStatusTop" class="status-badge">PICKS OPEN</div>
       </div>
-      <div id="testBanner" class="test-banner" hidden>TEST MODE — Does Not Affect Standings</div>
+
+      <div class="summary-card">
+        <div class="summary-card-title">Welcome, <span id="welcomeName">Player</span>!</div>
+        <div class="summary-stat-label">Overall Record</div>
+        <div class="summary-stat">0-0-0</div>
+        <div class="summary-stat-label">Season ATS</div>
+        <div class="summary-stat-small">0-0-0 (0.0%)</div>
+      </div>
+
+      <div class="summary-card">
+        <div class="summary-card-title">Test Mode</div>
+        <div id="testModeBadge" class="test-week-badge" hidden>TEST WEEK</div>
+        <div id="testModeText">This is a real week.<br>It affects standings.</div>
+      </div>
     </div>
     <div id="picks" class="tab active">
-      <div class="card">
+      <div class="games-panel">
         <div class="section-head">
           <div>
-            <h2>Week 1 Picks</h2>
+            <h2>Week 1 Games</h2>
             <p id="lockNotice" class="muted"></p>
           </div>
           <span id="pickProgress" class="pill">0 of 20 complete</span>
         </div>
+
         <div id="games"></div>
 
-        <h3>Game of the Week Tiebreaker</h3>
-        <p>Clemson @ #11 LSU — predict the final score.</p>
-        <div class="score">
-          <input id="clemsonScore" type="number" min="0" placeholder="Clemson">
-          <input id="lsuScore" type="number" min="0" placeholder="LSU">
+        <div class="tiebreak-panel">
+          <h3>Game of the Week Tiebreaker</h3>
+          <p>Clemson @ #11 LSU — predict the final score.</p>
+          <div class="score">
+            <input id="clemsonScore" type="number" min="0" placeholder="Clemson">
+            <input id="lsuScore" type="number" min="0" placeholder="LSU">
+          </div>
         </div>
 
         <button id="savePicks" class="primary submit-btn">Submit Picks</button>
@@ -177,6 +195,24 @@
   </section>
 </main>
 
-<script type="module" src="app.js?v=6.1"></script>
+<footer class="site-footer">
+  <div>
+    <h3>League Info</h3>
+    <p>Scoring: Against the Spread (ATS)</p>
+    <p>Tiebreaker: Game of the Week</p>
+  </div>
+  <div>
+    <h3>Need Help?</h3>
+    <p>Check the rules or contact the commissioner.</p>
+  </div>
+  <div>
+    <h3>Logged in as</h3>
+    <p id="footerUser">—</p>
+    <p>Good luck this week!</p>
+  </div>
+</footer>
+
+
+<script type="module" src="app.js?v=6.2"></script>
 </body>
 </html>

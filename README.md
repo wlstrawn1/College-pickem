@@ -1,21 +1,24 @@
-# College Pick'em V6.1 — Hero Banner + Visual Refresh
+# College Pick'em V6.2 — Dashboard Layout + Game Selection Fix
 
-New in V6.1:
-- Adds the CFB Pick'em artwork as a responsive hero banner at the top of the site.
-- Keeps the v6.1 version badge visible in the navigation/header area.
-- Refines the layout to more closely match the mockup:
-  - darker sports-style header/navigation
-  - red active nav/pick accents
-  - cleaner matchup cards
-  - lighter pick buttons
-  - stronger selected-pick styling
-- Keeps all V6 multi-week/test-mode features and Firestore rules.
+This build is intended to match the approved dark dashboard mockup much more closely.
 
-Upload these files to the root of your GitHub Pages repo:
+Changes:
+- Smaller hero image positioned at the upper-left instead of a full-width banner.
+- College Pick'em title/navigation aligned beside the image.
+- Three dashboard summary cards: Week Selector, Welcome/Season stats, Test Mode.
+- Full-width Week Games panel with matchup rows and ATS pick buttons.
+- Game selection rows restored even when the existing Firestore Week 1 document does not contain a `games` field.
+- Existing Week 1 static slate is used as a fallback.
+- GOTW tiebreaker remains below the game list.
+- Footer added for league info/help/account context.
+- Responsive layout for laptops and mobile.
+- Cache/version bumped to v6.2.
+
+Upload to GitHub:
 - index.html
 - styles.css
 - app.js
 - cfb-pickem-banner.jpeg
 - README.md
 
-The included firestore.rules are unchanged from V6. If you already published the V6 rules, you do not need to republish them.
+Firestore rules are unchanged from V6.

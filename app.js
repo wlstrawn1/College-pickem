@@ -54,7 +54,7 @@ function isLocked(){
   return Date.now()>=d.getTime();
 }
 
-function gamesForWeek(){ return weekData?.games?.length ? weekData.games : baseGames; }
+function gamesForWeek(){ return Array.isArray(weekData?.games) && weekData.games.length ? weekData.games : baseGames; }
 
 async function loadWeeks(){
   const snap=await getDocs(collection(db,"weeks"));
@@ -73,11 +73,21 @@ async function loadWeeks(){
 }
 
 function updateWeekUI(){
-  $("testBanner").hidden=!weekData?.isTest;
   const label=weekData?.label||currentWeekId;
-  document.querySelector("#picks h2").textContent=`${label} Picks`;
+  document.querySelector("#picks h2").textContent=`${label} Games`;
   $("confirmation .confirmation-subtitle").textContent=`${label} • College Pick'em`;
   $("resultsTitle").textContent=`${label} Results`;
+
+  if($("weekSelectTop")){
+    $("weekSelectTop").innerHTML=$("weekSelect").innerHTML;
+    $("weekSelectTop").value=currentWeekId;
+  }
+  if($("weekLockTop")) $("weekLockTop").textContent=weekData?.lockAt?`Lock: ${formatCentral(weekData.lockAt)}`:"Lock: Not set";
+  if($("weekStatusTop")) $("weekStatusTop").textContent=isLocked()?"PICKS LOCKED":"PICKS OPEN";
+  if($("testModeBadge")) $("testModeBadge").hidden=!weekData?.isTest;
+  if($("testModeText")) $("testModeText").innerHTML=weekData?.isTest
+    ?"This is a test week.<br>It does not affect standings."
+    :"This is a real week.<br>It affects standings.";
 }
 
 function updateLockUI(){
@@ -175,11 +185,14 @@ async function loadProfile(){
   const s=await getDoc(doc(db,"users",user.uid));
   profile=s.exists()?s.data():null;
   if(!profile){$("profileCard").hidden=false;$("appArea").hidden=true;return;}
+  if($("welcomeName")) $("welcomeName").textContent=(profile.name||"Player").split(" ")[0];
+  if($("footerUser")) $("footerUser").textContent=profile.name||user.email;
   $("profileCard").hidden=true;$("appArea").hidden=false;$("adminTab").hidden=profile.role!=="admin";
   await loadWeeks(); await switchWeek(currentWeekId);
 }
 
 $("weekSelect").onchange=()=>switchWeek($("weekSelect").value);
+if($("weekSelectTop")) $("weekSelectTop").onchange=()=>switchWeek($("weekSelectTop").value);
 $("googleBtn").onclick=()=>signInWithPopup(auth,google).catch(e=>$("authMsg").textContent=e.message);
 $("emailCreate").onclick=()=>createUserWithEmailAndPassword(auth,$("email").value,$("password").value).catch(e=>$("authMsg").textContent=e.message);
 $("emailSignIn").onclick=()=>signInWithEmailAndPassword(auth,$("email").value,$("password").value).catch(e=>$("authMsg").textContent=e.message);
