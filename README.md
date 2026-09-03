@@ -16,3 +16,8 @@ New in this build:
 
 Upload `index.html`, `styles.css`, `app.js`, and `README.md` to the GitHub repo root, replacing the existing files.
 `firestore.rules` is included for reference and is unchanged.
+
+
+## V5.1 cache fix
+This build adds cache-busting query strings to `styles.css` and `app.js` and a small visible `v5.1` marker in the header.
+If the live site shows `v5.1`, you know GitHub Pages is serving the new build.
