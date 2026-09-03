@@ -1,18 +1,16 @@
-# College Pick'em V6.2 — Dashboard Layout + Game Selection Fix
+# College Pick'em V6.2.1 — Click/Interaction Fix
 
-This build is intended to match the approved dark dashboard mockup much more closely.
+V6.2.1 fixes the homepage interaction failure introduced in V6.2.
 
-Changes:
-- Smaller hero image positioned at the upper-left instead of a full-width banner.
-- College Pick'em title/navigation aligned beside the image.
-- Three dashboard summary cards: Week Selector, Welcome/Season stats, Test Mode.
-- Full-width Week Games panel with matchup rows and ATS pick buttons.
-- Game selection rows restored even when the existing Firestore Week 1 document does not contain a `games` field.
-- Existing Week 1 static slate is used as a fallback.
-- GOTW tiebreaker remains below the game list.
-- Footer added for league info/help/account context.
-- Responsive layout for laptops and mobile.
-- Cache/version bumped to v6.2.
+Cause:
+- The new dashboard removed the old `weekSelect` element.
+- JavaScript was still trying to write to that missing element.
+- That runtime error stopped the rest of the page JavaScript from initializing, which made the page appear unclickable.
+
+Fix:
+- `weekSelectTop` is now the single Week Selector used throughout the app.
+- Navigation event binding is also tightened to actual tab buttons only.
+- Cache/version bumped to v6.2.1 so GitHub Pages loads the corrected JavaScript.
 
 Upload to GitHub:
 - index.html
@@ -21,4 +19,4 @@ Upload to GitHub:
 - cfb-pickem-banner.jpeg
 - README.md
 
-Firestore rules are unchanged from V6.
+Firestore rules are unchanged.

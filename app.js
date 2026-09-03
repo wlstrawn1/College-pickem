@@ -66,10 +66,10 @@ async function loadWeeks(){
     currentWeekId=availableWeeks[0]?.id||"week-1";
   }
 
-  $("weekSelect").innerHTML=availableWeeks.length
+  $("weekSelectTop").innerHTML=availableWeeks.length
     ? availableWeeks.map(w=>`<option value="${w.id}">${w.label||w.id}${w.isTest?" — TEST":""}</option>`).join("")
     : '<option value="week-1">Week 1</option>';
-  $("weekSelect").value=currentWeekId;
+  $("weekSelectTop").value=currentWeekId;
 }
 
 function updateWeekUI(){
@@ -78,11 +78,7 @@ function updateWeekUI(){
   $("confirmation .confirmation-subtitle").textContent=`${label} • College Pick'em`;
   $("resultsTitle").textContent=`${label} Results`;
 
-  if($("weekSelectTop")){
-    $("weekSelectTop").innerHTML=$("weekSelect").innerHTML;
-    $("weekSelectTop").value=currentWeekId;
-  }
-  if($("weekLockTop")) $("weekLockTop").textContent=weekData?.lockAt?`Lock: ${formatCentral(weekData.lockAt)}`:"Lock: Not set";
+    if($("weekLockTop")) $("weekLockTop").textContent=weekData?.lockAt?`Lock: ${formatCentral(weekData.lockAt)}`:"Lock: Not set";
   if($("weekStatusTop")) $("weekStatusTop").textContent=isLocked()?"PICKS LOCKED":"PICKS OPEN";
   if($("testModeBadge")) $("testModeBadge").hidden=!weekData?.isTest;
   if($("testModeText")) $("testModeText").innerHTML=weekData?.isTest
@@ -191,8 +187,7 @@ async function loadProfile(){
   await loadWeeks(); await switchWeek(currentWeekId);
 }
 
-$("weekSelect").onchange=()=>switchWeek($("weekSelect").value);
-if($("weekSelectTop")) $("weekSelectTop").onchange=()=>switchWeek($("weekSelectTop").value);
+$("weekSelectTop").onchange=()=>switchWeek($("weekSelectTop").value);
 $("googleBtn").onclick=()=>signInWithPopup(auth,google).catch(e=>$("authMsg").textContent=e.message);
 $("emailCreate").onclick=()=>createUserWithEmailAndPassword(auth,$("email").value,$("password").value).catch(e=>$("authMsg").textContent=e.message);
 $("emailSignIn").onclick=()=>signInWithEmailAndPassword(auth,$("email").value,$("password").value).catch(e=>$("authMsg").textContent=e.message);
@@ -257,7 +252,7 @@ $("resetTestWeek").onclick=async()=>{
   $("adminMsg").textContent="Test submissions cleared. The test week itself is still available.";
 };
 
-document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
+document.querySelectorAll("nav button[data-tab]").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 
 onAuthStateChanged(auth,async u=>{
   user=u;$("loginCard").hidden=!!u;
