@@ -40,3 +40,4 @@ input{width:100%;padding:12px;margin:7px 0;background:#0d1117;color:#fff;border:
   .row,.confirmation-actions{flex-direction:column}
   .section-head{align-items:flex-start;flex-direction:column}
 }
+.matchup-spread{color:#8b949e;font-size:14px;margin-top:4px}

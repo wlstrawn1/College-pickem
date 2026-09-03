@@ -92,7 +92,10 @@ function renderGames(){
   const locked=isLocked();
   $("games").innerHTML=games.map(g=>`<div class="game">
     <div class="game-head">
-      <b>${g.fav} ${g.spread}</b>
+      <div>
+        <b>${g.dog} vs ${g.fav}</b>
+        <div class="matchup-spread">${g.fav} ${g.spread}</div>
+      </div>
       <span class="points">${g.points} pt${g.points>1?"s":""}</span>
     </div>
     <div class="choices">
@@ -183,7 +186,7 @@ $("forgotPassword").onclick=async()=>{
   }
   try{
     await sendPasswordResetEmail(auth,email);
-    $("authMsg").textContent="Password reset email sent. Check your inbox.";
+    $("authMsg").textContent="Password reset email sent. Check your inbox and junk/spam folder.";
   }catch(e){
     $("authMsg").textContent=e.message;
   }
