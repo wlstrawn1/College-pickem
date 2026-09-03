@@ -1,1 +1,38 @@
-*{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font:16px system-ui,-apple-system,Segoe UI,sans-serif}header{padding:22px max(20px,calc((100% - 980px)/2));display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #30363d}h1{margin:0}header p,.muted{color:#8b949e;margin:4px 0}nav{display:flex;gap:8px;padding:12px max(20px,calc((100% - 980px)/2));border-bottom:1px solid #30363d;overflow:auto}button{background:#21262d;color:#e6edf3;border:1px solid #30363d;border-radius:8px;padding:10px 14px;cursor:pointer}button.active,.primary{background:#9e1b32;border-color:#b72a43;color:white}main{max-width:980px;margin:24px auto;padding:0 20px}.card{background:#161b22;border:1px solid #30363d;border-radius:14px;padding:22px;margin-bottom:18px;max-width:760px}.tab{display:none}.tab.active{display:block}input{width:100%;padding:12px;margin:7px 0;background:#0d1117;color:#fff;border:1px solid #30363d;border-radius:8px}.row,.score{display:flex;gap:10px}.row>*{flex:1}.or{text-align:center;color:#8b949e;margin:10px}.check{display:block;margin:14px 0}.check input{width:auto}.game{border-top:1px solid #30363d;padding:15px 0}.game-head{display:flex;justify-content:space-between;gap:10px}.choices{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px}.choice.selected{outline:2px solid #d64b64;background:#35131a}.points{font-weight:700;color:#f0b429}.msg{min-height:20px;color:#79c0ff}@media(max-width:600px){header{align-items:flex-start;gap:12px}.choices{grid-template-columns:1fr}.row{flex-direction:column}}
+*{box-sizing:border-box}
+body{margin:0;background:#0d1117;color:#e6edf3;font:16px system-ui,-apple-system,Segoe UI,sans-serif}
+header{padding:22px max(20px,calc((100% - 980px)/2));display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #30363d}
+h1{margin:0}
+header p,.muted,.helper{color:#8b949e}
+header p{margin:4px 0}
+nav{display:flex;gap:8px;padding:12px max(20px,calc((100% - 980px)/2));border-bottom:1px solid #30363d;overflow:auto}
+button{background:#21262d;color:#e6edf3;border:1px solid #30363d;border-radius:8px;padding:10px 14px;cursor:pointer}
+button.active,.primary{background:#9e1b32;border-color:#b72a43;color:white}
+main{max-width:980px;margin:24px auto;padding:0 20px}
+.card{background:#161b22;border:1px solid #30363d;border-radius:14px;padding:22px;margin-bottom:18px;max-width:760px}
+.tab{display:none}.tab.active{display:block}
+input{width:100%;padding:12px;margin:7px 0;background:#0d1117;color:#fff;border:1px solid #30363d;border-radius:8px}
+.row,.score{display:flex;gap:10px}.row>*{flex:1}
+.or{text-align:center;color:#8b949e;margin:10px}
+.check{display:block;margin:14px 0}.check input{width:auto}
+.game{border-top:1px solid #30363d;padding:15px 0}
+.game-head,.section-head{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.choices{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px}
+.choice.selected{outline:2px solid #d64b64;background:#35131a}
+.points{font-weight:700;color:#f0b429}
+.msg{min-height:20px;color:#79c0ff}
+.pill{padding:7px 10px;border-radius:999px;background:#21262d;border:1px solid #30363d;color:#c9d1d9;font-size:14px;white-space:nowrap}
+.submit-btn{width:100%;margin-top:16px;padding:13px 16px;font-size:16px;font-weight:700}
+.confirmation-card{text-align:center}
+.success-icon{width:66px;height:66px;border-radius:50%;display:grid;place-items:center;margin:4px auto 14px;background:#1f6f43;color:#fff;font-size:34px;font-weight:800}
+.confirmation-card h2{font-size:30px;margin:0 0 4px}
+.confirmation-subtitle{color:#8b949e;margin:0 0 22px}
+.summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;text-align:left;margin:20px 0}
+.summary-item{background:#0d1117;border:1px solid #30363d;border-radius:10px;padding:14px}
+.summary-label{display:block;color:#8b949e;font-size:13px;margin-bottom:5px}
+.confirmation-actions{display:flex;gap:10px;justify-content:center;margin-top:20px}
+@media(max-width:600px){
+  header{align-items:flex-start;gap:12px}
+  .choices,.summary-grid{grid-template-columns:1fr}
+  .row,.confirmation-actions{flex-direction:column}
+  .section-head{align-items:flex-start;flex-direction:column}
+}

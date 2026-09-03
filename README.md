@@ -1,8 +1,13 @@
-# College Pick'em V2 — Firebase
-1. Firebase > Firestore > Rules: replace the rules with `firestore.rules` and click Publish.
-2. Upload `index.html`, `styles.css`, and `app.js` to the GitHub repo root, replacing the old files.
-3. You may also upload `firestore.rules` and this README for reference.
-4. Test Google/email sign-in and save a profile/picks.
-5. After William creates his profile, in Firestore > Data > users > William's UID document, change `role` from `player` to `admin`.
+# College Pick'em V3 — Submit Confirmation
 
-V2 includes Firebase authentication, Firestore profiles, real saved Week 1 picks, cross-device persistence, and an admin-role foundation. Next: commissioner slate editor, lock deadlines, pick matrix, live scores/spreads, grading, and standings.
+Changes in this build:
+- Profile now explicitly requires First and Last Name for standings.
+- Pick button says Submit Picks on first submission and Update Picks after submission.
+- Players must complete all 20 picks and both Game of the Week scores before submitting.
+- Successful submission takes the player to a dedicated confirmation screen.
+- Confirmation screen shows pick count, Game of the Week prediction, submitted time, and saved status.
+- Players can View My Picks or Edit Picks after submitting.
+- Picks remain stored in Firebase/Firestore.
+
+Upload `index.html`, `styles.css`, and `app.js` to the root of the GitHub Pages repository and replace the existing files.
+The `firestore.rules` file is unchanged from V2 and is included for reference.

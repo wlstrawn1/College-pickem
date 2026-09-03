@@ -1,7 +1,136 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>College Pick'em</title><link rel="stylesheet" href="styles.css"></head><body>
-<header><div><h1>College Pick'em</h1><p>Against the Spread • 2026</p></div><div id="authBox"></div></header>
-<nav><button data-tab="picks" class="active">Picks</button><button data-tab="mypicks">My Picks</button><button data-tab="leaderboard">Leaderboard</button><button data-tab="admin" id="adminTab" hidden>Admin</button></nav>
-<main><section id="loginCard" class="card"><h2>Sign in to play</h2><p>Your picks will be saved to your account and available on any device.</p><button id="googleBtn" class="primary">Continue with Google</button><div class="or">or</div><input id="email" type="email" placeholder="Email"><input id="password" type="password" placeholder="Password (6+ characters)"><div class="row"><button id="emailSignIn">Sign in</button><button id="emailCreate">Create account</button></div><p id="authMsg" class="msg"></p></section>
-<section id="profileCard" class="card" hidden><h2>Finish your profile</h2><input id="displayName" placeholder="Name shown in standings"><label class="check"><input id="seasonPool" type="checkbox"> Join the $10 season ATS pot</label><button id="saveProfile" class="primary">Save profile</button></section>
-<section id="appArea" hidden><div id="picks" class="tab active"><div class="card"><h2>Week 1 Picks</h2><p class="muted">V2 test slate — picks now save to Firebase.</p><div id="games"></div><h3>Game of the Week Tiebreaker</h3><p>Clemson @ #11 LSU — predict the final score.</p><div class="score"><input id="clemsonScore" type="number" min="0" placeholder="Clemson"><input id="lsuScore" type="number" min="0" placeholder="LSU"></div><button id="savePicks" class="primary">Save picks</button><p id="saveMsg" class="msg"></p></div></div>
-<div id="mypicks" class="tab"><div class="card"><h2>My Picks</h2><div id="myPicksView"></div></div></div><div id="leaderboard" class="tab"><div class="card"><h2>Leaderboard</h2><p>Real standings will populate here once games are graded.</p></div></div><div id="admin" class="tab"><div class="card"><h2>Commissioner</h2><p>Commissioner foundation is active. Weekly slate management comes next.</p></div></div></section></main><script type="module" src="app.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>College Pick'em</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header>
+  <div>
+    <h1>College Pick'em</h1>
+    <p>Against the Spread • 2026</p>
+  </div>
+  <div id="authBox"></div>
+</header>
+
+<nav>
+  <button data-tab="picks" class="active">Picks</button>
+  <button data-tab="mypicks">My Picks</button>
+  <button data-tab="leaderboard">Leaderboard</button>
+  <button data-tab="admin" id="adminTab" hidden>Admin</button>
+</nav>
+
+<main>
+  <section id="loginCard" class="card">
+    <h2>Sign in to play</h2>
+    <p>Your picks will be saved to your account and available on any device.</p>
+    <button id="googleBtn" class="primary">Continue with Google</button>
+    <div class="or">or</div>
+    <input id="email" type="email" placeholder="Email">
+    <input id="password" type="password" placeholder="Password (6+ characters)">
+    <div class="row">
+      <button id="emailSignIn">Sign in</button>
+      <button id="emailCreate">Create account</button>
+    </div>
+    <p id="authMsg" class="msg"></p>
+  </section>
+
+  <section id="profileCard" class="card" hidden>
+    <h2>Finish your profile</h2>
+    <label for="displayName"><strong>First and Last Name</strong></label>
+    <p class="helper">Please enter your first and last name. This is how your name will appear in the standings.</p>
+    <input id="displayName" placeholder="Example: William Strawn" autocomplete="name">
+    <label class="check">
+      <input id="seasonPool" type="checkbox">
+      Join the $10 season ATS pot
+    </label>
+    <button id="saveProfile" class="primary">Save profile</button>
+    <p id="profileMsg" class="msg"></p>
+  </section>
+
+  <section id="appArea" hidden>
+    <div id="picks" class="tab active">
+      <div class="card">
+        <div class="section-head">
+          <div>
+            <h2>Week 1 Picks</h2>
+            <p class="muted">Make every selection, enter your Game of the Week prediction, then submit.</p>
+          </div>
+          <span id="pickProgress" class="pill">0 of 20 complete</span>
+        </div>
+        <div id="games"></div>
+
+        <h3>Game of the Week Tiebreaker</h3>
+        <p>Clemson @ #11 LSU — predict the final score.</p>
+        <div class="score">
+          <input id="clemsonScore" type="number" min="0" placeholder="Clemson">
+          <input id="lsuScore" type="number" min="0" placeholder="LSU">
+        </div>
+
+        <button id="savePicks" class="primary submit-btn">Submit Picks</button>
+        <p id="saveMsg" class="msg"></p>
+      </div>
+    </div>
+
+    <div id="confirmation" class="tab">
+      <div class="card confirmation-card">
+        <div class="success-icon">✓</div>
+        <h2>Picks Submitted!</h2>
+        <p class="confirmation-subtitle">Week 1 • College Pick'em</p>
+
+        <div class="summary-grid">
+          <div class="summary-item">
+            <span class="summary-label">Picks completed</span>
+            <strong id="confirmCompleted">20 of 20</strong>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">Game of the Week</span>
+            <strong id="confirmTiebreak">—</strong>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">Submitted</span>
+            <strong id="confirmSubmitted">—</strong>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">Status</span>
+            <strong id="confirmStatus">Saved</strong>
+          </div>
+        </div>
+
+        <div class="confirmation-actions">
+          <button id="viewMyPicks" class="primary">View My Picks</button>
+          <button id="editPicks">Edit Picks</button>
+        </div>
+
+        <p class="helper">You can edit your picks before the weekly lock time. Once the week locks, your picks will be read-only.</p>
+      </div>
+    </div>
+
+    <div id="mypicks" class="tab">
+      <div class="card">
+        <h2>My Picks</h2>
+        <div id="myPicksView"></div>
+      </div>
+    </div>
+
+    <div id="leaderboard" class="tab">
+      <div class="card">
+        <h2>Leaderboard</h2>
+        <p>Real standings will populate here once games are graded.</p>
+      </div>
+    </div>
+
+    <div id="admin" class="tab">
+      <div class="card">
+        <h2>Commissioner</h2>
+        <p>Commissioner foundation is active. Weekly slate management comes next.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
