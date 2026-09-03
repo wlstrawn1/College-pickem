@@ -341,3 +341,63 @@ main{
   object-position: center center !important;
   background:#050505;
 }
+
+/* V6.2.3 — true full-width hero banner */
+.hero-wrap{
+  max-width:1500px !important;
+  width:100% !important;
+  margin:0 auto !important;
+  padding:14px 24px 0 !important;
+  box-sizing:border-box !important;
+  background:transparent !important;
+}
+.hero-image{
+  display:block !important;
+  width:100% !important;
+  max-width:none !important;
+  min-width:0 !important;
+  height:auto !important;
+  aspect-ratio:auto !important;
+  object-fit:contain !important;
+  object-position:center !important;
+  border-radius:10px !important;
+  background:#050505 !important;
+}
+
+/* Put title and navigation underneath the banner instead of beside it */
+header{
+  max-width:1500px !important;
+  width:100% !important;
+  margin:0 auto !important;
+  min-height:0 !important;
+  padding:18px 32px 10px !important;
+  box-sizing:border-box !important;
+  background:transparent !important;
+}
+header h1{
+  margin:0 !important;
+}
+nav{
+  max-width:1500px !important;
+  width:100% !important;
+  margin:0 auto !important;
+  padding:0 32px 14px !important;
+  box-sizing:border-box !important;
+  background:transparent !important;
+}
+
+@media(max-width:700px){
+  .hero-wrap{
+    padding:8px 12px 0 !important;
+  }
+  .hero-image{
+    width:100% !important;
+    height:auto !important;
+  }
+  header{
+    padding:14px 16px 8px !important;
+  }
+  nav{
+    padding:0 12px 12px !important;
+  }
+}
