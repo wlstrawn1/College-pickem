@@ -1,22 +1,17 @@
-# College Pick'em V6.2.1 — Click/Interaction Fix
+# College Pick'em V6.2.2
 
-V6.2.1 fixes the homepage interaction failure introduced in V6.2.
+Updates:
+- Uses the final vintage black-and-gold CFB Pick'em artwork as the site banner.
+- Banner uses `object-fit: contain` so the complete artwork is visible instead of cropped.
+- Keeps the V6.2.1 interaction/click fix.
+- Cache/version bumped to v6.2.2.
 
-Cause:
-- The new dashboard removed the old `weekSelect` element.
-- JavaScript was still trying to write to that missing element.
-- That runtime error stopped the rest of the page JavaScript from initializing, which made the page appear unclickable.
-
-Fix:
-- `weekSelectTop` is now the single Week Selector used throughout the app.
-- Navigation event binding is also tightened to actual tab buttons only.
-- Cache/version bumped to v6.2.1 so GitHub Pages loads the corrected JavaScript.
-
-Upload to GitHub:
+Upload/replace these GitHub files:
 - index.html
 - styles.css
 - app.js
-- cfb-pickem-banner.jpeg
+- cfb-pickem-banner.png
 - README.md
 
+You can delete the old `cfb-pickem-banner.jpeg` from the repo after the new PNG is uploaded.
 Firestore rules are unchanged.

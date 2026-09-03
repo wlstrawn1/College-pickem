@@ -334,3 +334,10 @@ main{
   .choices{grid-template-columns:1fr}
   .site-footer{grid-template-columns:1fr;padding:18px 22px 28px}
 }
+
+/* V6.2.2 vintage banner */
+.hero-image{
+  object-fit: contain !important;
+  object-position: center center !important;
+  background:#050505;
+}
