@@ -7,6 +7,8 @@ header p{margin:4px 0}
 nav{display:flex;gap:8px;padding:12px max(20px,calc((100% - 980px)/2));border-bottom:1px solid #30363d;overflow:auto}
 button{background:#21262d;color:#e6edf3;border:1px solid #30363d;border-radius:8px;padding:10px 14px;cursor:pointer}
 button.active,.primary{background:#9e1b32;border-color:#b72a43;color:white}
+button:disabled{opacity:.5;cursor:not-allowed}
+.link-btn{background:transparent;border:none;color:#79c0ff;padding:4px 0;margin:0 0 10px;text-align:left}
 main{max-width:980px;margin:24px auto;padding:0 20px}
 .card{background:#161b22;border:1px solid #30363d;border-radius:14px;padding:22px;margin-bottom:18px;max-width:760px}
 .tab{display:none}.tab.active{display:block}
@@ -30,6 +32,8 @@ input{width:100%;padding:12px;margin:7px 0;background:#0d1117;color:#fff;border:
 .summary-item{background:#0d1117;border:1px solid #30363d;border-radius:10px;padding:14px}
 .summary-label{display:block;color:#8b949e;font-size:13px;margin-bottom:5px}
 .confirmation-actions{display:flex;gap:10px;justify-content:center;margin-top:20px}
+.timezone-note{color:#f0b429;font-weight:700}
+.locked{color:#f0b429;font-weight:700}
 @media(max-width:600px){
   header{align-items:flex-start;gap:12px}
   .choices,.summary-grid{grid-template-columns:1fr}

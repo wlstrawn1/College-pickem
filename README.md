@@ -1,13 +1,17 @@
-# College Pick'em V3 — Submit Confirmation
+# College Pick'em V4 — Admin Lock Time
 
-Changes in this build:
-- Profile now explicitly requires First and Last Name for standings.
-- Pick button says Submit Picks on first submission and Update Picks after submission.
-- Players must complete all 20 picks and both Game of the Week scores before submitting.
-- Successful submission takes the player to a dedicated confirmation screen.
-- Confirmation screen shows pick count, Game of the Week prediction, submitted time, and saved status.
-- Players can View My Picks or Edit Picks after submitting.
-- Picks remain stored in Firebase/Firestore.
+New in this build:
+- Name example changed to Nick Saban.
+- Forgot password flow added using Firebase password reset email.
+- My Picks now has Edit My Picks before the deadline.
+- After the deadline, editing is disabled and the UI shows Picks Locked.
+- Admin screen now has Pick Lock Date + Pick Lock Time.
+- Lock time is explicitly stored/displayed in America/Chicago (Central Time).
+- Publishing the week saves the deadline to Firestore.
+- Picks, confirmation, and My Picks all read the same Firebase deadline.
+- Submit Picks becomes Update Picks after the first submission.
 
-Upload `index.html`, `styles.css`, and `app.js` to the root of the GitHub Pages repository and replace the existing files.
-The `firestore.rules` file is unchanged from V2 and is included for reference.
+Important: your account must have `role: admin` in Firestore for the Admin tab to appear and for Publish Week to work.
+
+Upload `index.html`, `styles.css`, `app.js`, and `README.md` to the GitHub repo root, replacing the prior files.
+`firestore.rules` is included for reference and is unchanged from the previously published rules.

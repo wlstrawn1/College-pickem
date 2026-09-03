@@ -30,6 +30,7 @@
     <div class="or">or</div>
     <input id="email" type="email" placeholder="Email">
     <input id="password" type="password" placeholder="Password (6+ characters)">
+    <button id="forgotPassword" class="link-btn" type="button">Forgot password?</button>
     <div class="row">
       <button id="emailSignIn">Sign in</button>
       <button id="emailCreate">Create account</button>
@@ -41,7 +42,7 @@
     <h2>Finish your profile</h2>
     <label for="displayName"><strong>First and Last Name</strong></label>
     <p class="helper">Please enter your first and last name. This is how your name will appear in the standings.</p>
-    <input id="displayName" placeholder="Example: William Strawn" autocomplete="name">
+    <input id="displayName" placeholder="Example: Nick Saban" autocomplete="name">
     <label class="check">
       <input id="seasonPool" type="checkbox">
       Join the $10 season ATS pot
@@ -56,7 +57,7 @@
         <div class="section-head">
           <div>
             <h2>Week 1 Picks</h2>
-            <p class="muted">Make every selection, enter your Game of the Week prediction, then submit.</p>
+            <p id="lockNotice" class="muted"></p>
           </div>
           <span id="pickProgress" class="pill">0 of 20 complete</span>
         </div>
@@ -94,8 +95,8 @@
             <strong id="confirmSubmitted">—</strong>
           </div>
           <div class="summary-item">
-            <span class="summary-label">Status</span>
-            <strong id="confirmStatus">Saved</strong>
+            <span class="summary-label">Picks lock</span>
+            <strong id="confirmLock">—</strong>
           </div>
         </div>
 
@@ -104,13 +105,19 @@
           <button id="editPicks">Edit Picks</button>
         </div>
 
-        <p class="helper">You can edit your picks before the weekly lock time. Once the week locks, your picks will be read-only.</p>
+        <p id="confirmHelper" class="helper"></p>
       </div>
     </div>
 
     <div id="mypicks" class="tab">
       <div class="card">
-        <h2>My Picks</h2>
+        <div class="section-head">
+          <div>
+            <h2>My Picks</h2>
+            <p id="myPicksLockNotice" class="muted"></p>
+          </div>
+          <button id="myPicksEdit">Edit My Picks</button>
+        </div>
         <div id="myPicksView"></div>
       </div>
     </div>
@@ -125,7 +132,18 @@
     <div id="admin" class="tab">
       <div class="card">
         <h2>Commissioner</h2>
-        <p>Commissioner foundation is active. Weekly slate management comes next.</p>
+        <p class="helper">Set the weekly pick deadline in Central Time, then publish the week.</p>
+
+        <label for="lockDate"><strong>Pick Lock Date</strong></label>
+        <input id="lockDate" type="date">
+
+        <label for="lockTime"><strong>Pick Lock Time</strong></label>
+        <input id="lockTime" type="time">
+
+        <p class="timezone-note">Time Zone: Central Time (America/Chicago)</p>
+
+        <button id="publishWeek" class="primary">Publish Week</button>
+        <p id="adminMsg" class="msg"></p>
       </div>
     </div>
   </section>
