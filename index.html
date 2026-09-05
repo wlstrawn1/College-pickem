@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>College Pick'em</title>
-  <link rel="stylesheet" href="styles.css?v=6.2.4">
+  <link rel="stylesheet" href="styles.css?v=6.4.0">
 </head>
 <body>
 
@@ -15,7 +15,7 @@
 <header>
   <div class="brand-row">
     <h1>College Pick'em</h1>
-    <span class="version-badge">v6.2.4</span>
+    <span class="version-badge">v6.4.0</span>
   </div>
   <div id="authBox"></div>
 </header>
@@ -24,6 +24,7 @@
   <button data-tab="picks" class="active">Picks</button>
   <button data-tab="mypicks">My Picks</button>
   <button data-tab="leaderboard">Leaderboard</button>
+  <button data-tab="tracking">Tracking</button>
   <button data-tab="results">Results</button>
   <button data-tab="admin" id="adminTab" hidden>Admin</button>
 </nav>
@@ -162,6 +163,48 @@
     </div>
 
 
+    <div id="tracking" class="tab">
+      <div class="tracking-shell">
+        <div class="tracking-head">
+          <div>
+            <h2 id="trackingTitle">Week Tracking</h2>
+            <p id="trackingStatus" class="muted">Picks become visible to the league after the weekly lock.</p>
+          </div>
+          <button id="refreshTracking">Refresh Scores</button>
+        </div>
+
+        <div class="tracking-summary-grid">
+          <div class="tracking-summary-card">
+            <span class="tracking-summary-label">Games Complete</span>
+            <strong id="trackingComplete">0 / 0</strong>
+          </div>
+          <div class="tracking-summary-card">
+            <span class="tracking-summary-label">Games Remaining</span>
+            <strong id="trackingRemaining">0</strong>
+          </div>
+          <div class="tracking-summary-card">
+            <span class="tracking-summary-label">Current Leader</span>
+            <strong id="trackingLeader">—</strong>
+          </div>
+          <div class="tracking-summary-card">
+            <span class="tracking-summary-label">Entries</span>
+            <strong id="trackingEntries">0</strong>
+          </div>
+        </div>
+
+        <div class="tracking-legend">
+          <span><b class="tracking-dot correct"></b> Correct</span>
+          <span><b class="tracking-dot wrong"></b> Wrong</span>
+          <span><b class="tracking-dot pending"></b> Pending</span>
+          <span><b class="tracking-dot push"></b> Push</span>
+        </div>
+
+        <div id="trackingView" class="tracking-table-wrap">
+          <p class="helper">No tracking data loaded yet.</p>
+        </div>
+      </div>
+    </div>
+
     <div id="results" class="tab">
       <div class="card">
         <h2 id="resultsTitle">Results</h2>
@@ -190,6 +233,18 @@
         </div>
         <p class="helper">Test weeks are for trying the full workflow and never count toward real standings.</p>
         <p id="adminMsg" class="msg"></p>
+
+        <div class="admin-results-panel">
+          <div class="section-head">
+            <div>
+              <h3>Manual Result Overrides (Backup)</h3>
+              <p class="helper">Scores and ATS winners now update automatically from ESPN. Use these controls only if the feed misses a matchup or a commissioner needs to correct a result.</p>
+            </div>
+          </div>
+          <div id="adminResultsGames"></div>
+          <button id="saveResults">Save Manual Overrides</button>
+          <p id="resultsAdminMsg" class="msg"></p>
+        </div>
       </div>
     </div>
   </section>
@@ -213,6 +268,6 @@
 </footer>
 
 
-<script type="module" src="app.js?v=6.2.4"></script>
+<script type="module" src="app.js?v=6.4.0"></script>
 </body>
 </html>

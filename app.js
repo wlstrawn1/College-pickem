@@ -18,7 +18,10 @@ const db=getFirestore(fb);
 const google=new GoogleAuthProvider();
 const baseGames=[["#13 Alabama", "East Carolina", -28.5, 2], ["#7 Miami", "Stanford", -24.5, 2], ["#14 USC", "Fresno State", -22.5, 2], ["#6 Indiana", "North Texas", -40.5, 2], ["#23 Houston", "Oregon State", -20.5, 2], ["Auburn", "Baylor", -6.5, 1], ["#2 Oregon", "Boise State", -24.5, 2], ["#18 Penn State", "Marshall", -24.5, 2], ["Cincinnati", "Boston College", -7.5, 1], ["Arkansas", "North Alabama", -40.5, 1], ["Mississippi State", "UL Monroe", -28.5, 1], ["#11 LSU", "Clemson", -10.5, 2], ["#16 Michigan", "Western Michigan", -27.5, 2], ["Florida", "Florida Atlantic", -27.5, 1], ["UCLA", "California", -1.5, 1], ["#17 Washington", "Washington State", -23.5, 2], ["#4 Notre Dame", "Wisconsin", -20.5, 2], ["#9 Ole Miss", "#24 Louisville", -6.5, 3], ["#19 SMU", "Florida State", -2.5, 2], ["Georgia Tech", "Colorado", -6.5, 1]].map((g,i)=>({id:"g"+(i+1),fav:g[0],dog:g[1],spread:g[2],points:g[3]}));
 
-let user=null,profile=null,picks={},submittedAt=null,weekData=null,currentWeekId="week-1",availableWeeks=[];
+let user=null,profile=null,picks={},submittedAt=null,weekData=null,currentWeekId="week-1",availableWeeks=[],trackingEntries=[];
+let scoreFeedLastUpdated=null,scoreFeedError="",scoreRefreshTimer=null;
+const ESPN_SCOREBOARD="https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard";
+const scoreFeedCache=new Map();
 const $=x=>document.getElementById(x);
 
 function setTab(tabId){
@@ -75,7 +78,7 @@ async function loadWeeks(){
 function updateWeekUI(){
   const label=weekData?.label||currentWeekId;
   document.querySelector("#picks h2").textContent=`${label} Games`;
-  $("confirmation .confirmation-subtitle").textContent=`${label} • College Pick'em`;
+  document.querySelector("#confirmation .confirmation-subtitle").textContent=`${label} • College Pick'em`;
   $("resultsTitle").textContent=`${label} Results`;
 
     if($("weekLockTop")) $("weekLockTop").textContent=weekData?.lockAt?`Lock: ${formatCentral(weekData.lockAt)}`:"Lock: Not set";
@@ -135,10 +138,302 @@ function renderMy(){
   updateLockUI();
 }
 
+
+function normalizeTeamName(value){
+  return String(value||"")
+    .replace(/^#\d+\s+/,"")
+    .toLowerCase()
+    .replace(/&/g,"and")
+    .replace(/[^a-z0-9]+/g," ")
+    .trim()
+    .replace(/\s+/g," ");
+}
+
+const teamAliases={
+  "ul monroe":["louisiana monroe","ulm"],
+  "louisiana monroe":["ul monroe","ulm"],
+  "miami":["miami hurricanes"],
+  "usc":["southern california","usc trojans"],
+  "smu":["southern methodist"],
+  "lsu":["louisiana state"],
+  "ucla":["california los angeles"],
+  "california":["cal"],
+  "ole miss":["mississippi"],
+  "florida atlantic":["fau"],
+  "north alabama":["una"]
+};
+
+function teamNameKeys(value){
+  const base=normalizeTeamName(value);
+  return new Set([base,...(teamAliases[base]||[]).map(normalizeTeamName)]);
+}
+
+function espnCompetitorKeys(comp){
+  const t=comp?.team||{};
+  const raw=[t.displayName,t.shortDisplayName,t.location,t.name,t.abbreviation,t.slug];
+  const keys=new Set();
+  raw.filter(Boolean).forEach(v=>{
+    const n=normalizeTeamName(v);
+    if(n) keys.add(n);
+    (teamAliases[n]||[]).forEach(a=>keys.add(normalizeTeamName(a)));
+  });
+  return keys;
+}
+
+function namesOverlap(target,comp){
+  const a=teamNameKeys(target), b=espnCompetitorKeys(comp);
+  for(const k of a) if(b.has(k)) return true;
+  return false;
+}
+
+function weekFeedParams(w){
+  const raw=w?.lockDate || (w?.lockAt?.toDate?w.lockAt.toDate().toISOString().slice(0,10):"");
+  const year=raw?Number(String(raw).slice(0,4)):new Date().getFullYear();
+  const week=Number(w?.weekNumber)||1;
+  return {year,week};
+}
+
+async function fetchEspnEventsForWeek(w,{force=false}={}){
+  const {year,week}=weekFeedParams(w);
+  const cacheKey=`${year}-${week}`;
+  const cached=scoreFeedCache.get(cacheKey);
+  if(!force && cached && Date.now()-cached.fetchedAt<60000) return cached.events;
+  const url=`${ESPN_SCOREBOARD}?dates=${year}&seasontype=2&week=${week}&limit=200`;
+  const response=await fetch(url,{cache:"no-store"});
+  if(!response.ok) throw new Error(`Score feed returned ${response.status}`);
+  const data=await response.json();
+  const events=Array.isArray(data?.events)?data.events:[];
+  scoreFeedCache.set(cacheKey,{events,fetchedAt:Date.now()});
+  return events;
+}
+
+function matchEspnEvent(game,events){
+  for(const event of events){
+    const competitors=event?.competitions?.[0]?.competitors||[];
+    if(competitors.length<2) continue;
+    const fav=competitors.find(c=>namesOverlap(game.fav,c));
+    const dog=competitors.find(c=>namesOverlap(game.dog,c));
+    if(fav && dog && fav!==dog) return {event,fav,dog};
+  }
+  return null;
+}
+
+function numericScore(comp){
+  const n=Number(comp?.score);
+  return Number.isFinite(n)?n:null;
+}
+
+function calculateAtsWinner(game,favScore,dogScore){
+  if(favScore===null||dogScore===null) return null;
+  const adjustedFav=favScore+Number(game.spread||0);
+  if(Math.abs(adjustedFav-dogScore)<0.0001) return "PUSH";
+  return adjustedFav>dogScore?game.fav:game.dog;
+}
+
+function mergeScoreFeedIntoGames(games,events){
+  return games.map(game=>{
+    const match=matchEspnEvent(game,events);
+    if(!match) return {...game,feedMatched:false};
+    const {event,fav,dog}=match;
+    const favScore=numericScore(fav), dogScore=numericScore(dog);
+    const status=event?.status?.type||{};
+    const completed=!!status.completed;
+    const detail=status.shortDetail||status.detail||status.description||"Scheduled";
+    const next={...game,feedMatched:true,feedSource:"ESPN",feedEventId:event.id,feedStatus:detail,feedCompleted:completed};
+    if(favScore!==null&&dogScore!==null){
+      next.liveFavScore=favScore; next.liveDogScore=dogScore;
+      next.final=`${shortTeam(game.dog)} ${dogScore} – ${shortTeam(game.fav)} ${favScore}`;
+    }
+    if(completed){
+      const autoWinner=calculateAtsWinner(game,favScore,dogScore);
+      if(autoWinner) next.atsWinner=autoWinner;
+      next.autoGraded=true;
+    }
+    return next;
+  });
+}
+
+async function hydrateWeekFromScoreFeed(w,{force=false}={}){
+  if(!w || w.isTest) return w;
+  try{
+    const events=await fetchEspnEventsForWeek(w,{force});
+    const base=Array.isArray(w.games)&&w.games.length?w.games:baseGames;
+    const hydrated={...w,games:mergeScoreFeedIntoGames(base,events)};
+    scoreFeedLastUpdated=new Date(); scoreFeedError="";
+    return hydrated;
+  }catch(e){
+    scoreFeedError=e?.message||String(e);
+    return w;
+  }
+}
+
+function scoreFeedStatusText(){
+  if(weekData?.isTest) return "Test week — automatic score feed is disabled.";
+  if(scoreFeedError) return `Automatic score feed unavailable (${scoreFeedError}). Manual overrides remain available to the commissioner.`;
+  if(scoreFeedLastUpdated) return `Scores update automatically from ESPN. Last checked ${scoreFeedLastUpdated.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}.`;
+  return "Scores update automatically from ESPN when this page is open.";
+}
+
+async function refreshAutomaticScores({force=false}={}){
+  if(!weekData || weekData.isTest) return;
+  weekData=await hydrateWeekFromScoreFeed(weekData,{force});
+  renderResults(); renderAdminResults();
+  await loadTracking({skipScoreRefresh:true});
+}
+
+function gameOutcome(g){
+  const raw=g.atsWinner??g.coverWinner??g.resultWinner??g.winner??null;
+  if(!raw) return null;
+  const value=String(raw).trim();
+  if(!value) return null;
+  if(value.toUpperCase()==="PUSH") return "PUSH";
+  return value;
+}
+
+function isGameComplete(g){ return !!gameOutcome(g); }
+
+function gradePick(g,pick){
+  const outcome=gameOutcome(g);
+  if(!outcome) return "pending";
+  if(outcome==="PUSH") return "push";
+  return pick===outcome?"correct":"wrong";
+}
+
+function entryScore(entry,gs=gamesForWeek()){
+  let score=0,possible=0,wins=0,losses=0,pushes=0;
+  for(const g of gs){
+    const status=gradePick(g,entry.picks?.[g.id]);
+    if(status==="correct"){score+=Number(g.points)||1;wins++;}
+    else if(status==="wrong") losses++;
+    else if(status==="push") pushes++;
+    else possible+=Number(g.points)||1;
+  }
+  return {score,max:score+possible,wins,losses,pushes};
+}
+
+function shortTeam(name){
+  return String(name||"").replace(/^#\d+\s+/,"");
+}
+
+async function loadTracking({skipScoreRefresh=false}={}){
+  if(!skipScoreRefresh && weekData && !weekData.isTest) weekData=await hydrateWeekFromScoreFeed(weekData);
+  const gs=gamesForWeek();
+  $("trackingTitle").textContent=`${weekData?.label||currentWeekId} Tracking`;
+  $("trackingComplete").textContent=`${gs.filter(isGameComplete).length} / ${gs.length}`;
+  $("trackingRemaining").textContent=String(gs.filter(g=>!isGameComplete(g)).length);
+
+  if(!isLocked() && profile?.role!=="admin"){
+    trackingEntries=[];
+    $("trackingEntries").textContent="0";
+    $("trackingLeader").textContent="Hidden until lock";
+    $("trackingStatus").textContent=weekData?.lockAt?`League picks unlock after ${formatCentral(weekData.lockAt)}.`:"League picks unlock after the weekly deadline.";
+    $("trackingView").innerHTML='<div class="tracking-empty"><p class="helper">Tracking is hidden until picks lock so nobody can see another player\'s selections early.</p></div>';
+    return;
+  }
+
+  try{
+    const snap=await getDocs(collection(db,"weeks",currentWeekId,"entries"));
+    trackingEntries=snap.docs.map(d=>({id:d.id,...d.data()})).filter(e=>e.submitted!==false);
+  }catch(e){
+    trackingEntries=[];
+    $("trackingView").innerHTML=`<p class="helper">Unable to load tracking: ${e.message}</p>`;
+    return;
+  }
+
+  const ranked=trackingEntries.map(e=>({...e,_grade:entryScore(e,gs)})).sort((a,b)=>
+    b._grade.score-a._grade.score || b._grade.max-a._grade.max || String(a.name||"").localeCompare(String(b.name||""))
+  );
+  $("trackingEntries").textContent=String(ranked.length);
+  const topScore=ranked[0]?._grade.score;
+  const leaders=ranked.filter(e=>e._grade.score===topScore).map(e=>e.name||"Player");
+  $("trackingLeader").textContent=ranked.length?(leaders.length>2?`${leaders.length}-way tie · ${topScore} pts`:`${leaders.join(" / ")} · ${topScore} pts`):"—";
+  $("trackingStatus").textContent=weekData?.isTest?"Test week tracking — does not affect season standings.":scoreFeedStatusText();
+
+  if(!ranked.length){
+    $("trackingView").innerHTML='<p class="helper" style="padding:16px">No submitted entries yet.</p>';
+    return;
+  }
+
+  let lastScore=null,lastRank=0;
+  const rows=ranked.map((e,i)=>{
+    const rank=e._grade.score===lastScore?lastRank:i+1;
+    lastScore=e._grade.score; lastRank=rank;
+    const cells=gs.map(g=>{
+      const pick=e.picks?.[g.id]||"—";
+      const state=gradePick(g,pick);
+      const icon=state==="correct"?"✓":state==="wrong"?"✕":state==="push"?"—":"•";
+      return `<td class="tracking-pick ${state}" title="${g.dog} vs ${g.fav}: ${pick}"><span class="tracking-pick-name">${icon} ${shortTeam(pick)}</span><small>${g.points||1} pt${Number(g.points||1)!==1?"s":""}</small></td>`;
+    }).join("");
+    return `<tr class="${rank===1?"tracking-leader-row":""}"><td class="sticky-rank">${rank}</td><td class="sticky-player">${e.name||"Player"}</td><td class="score-col">${e._grade.score}</td><td class="score-col">${e._grade.max}</td>${cells}</tr>`;
+  }).join("");
+  const heads=gs.map((g,i)=>`<th title="${g.dog} vs ${g.fav}">G${i+1}<br><span class="muted">${g.points||1}pt</span></th>`).join("");
+  $("trackingView").innerHTML=`<table class="tracking-table"><thead><tr><th class="sticky-rank">#</th><th class="sticky-player">Player</th><th>Score</th><th>Max</th>${heads}</tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function renderAdminResults(){
+  if(profile?.role!=="admin" || !$("adminResultsGames")) return;
+  const gs=gamesForWeek();
+  $("adminResultsGames").innerHTML=gs.map((g,i)=>{
+    const outcome=gameOutcome(g)||"";
+    const finalText=g.final||g.finalScore||"";
+    return `<div class="admin-result-row"><div class="admin-result-game"><strong>${i+1}. ${g.dog} vs ${g.fav}</strong><span>${g.fav} ${g.spread} · ${g.points||1} pt${Number(g.points||1)!==1?"s":""}</span></div><select data-result-game="${g.id}"><option value="" ${!outcome?"selected":""}>Pending</option><option value="${g.fav}" ${outcome===g.fav?"selected":""}>${g.fav} covers</option><option value="${g.dog}" ${outcome===g.dog?"selected":""}>${g.dog} covers</option><option value="PUSH" ${outcome==="PUSH"?"selected":""}>Push</option></select><input data-final-game="${g.id}" value="${String(finalText).replace(/&/g,"&amp;").replace(/\"/g,"&quot;")}" placeholder="Final score (optional)"></div>`;
+  }).join("");
+}
+
+async function saveWeeklyResults(){
+  if(profile?.role!=="admin") return;
+  const updated=gamesForWeek().map(g=>{
+    const winner=$("adminResultsGames").querySelector(`[data-result-game="${g.id}"]`)?.value||"";
+    const finalText=$("adminResultsGames").querySelector(`[data-final-game="${g.id}"]`)?.value.trim()||"";
+    const next={...g};
+    if(winner) next.atsWinner=winner; else delete next.atsWinner;
+    if(finalText) next.final=finalText; else delete next.final;
+    return next;
+  });
+  await setDoc(doc(db,"weeks",currentWeekId),{games:updated,resultsUpdatedAt:serverTimestamp()},{merge:true});
+  $("resultsAdminMsg").textContent="Weekly results saved. Tracking has been recalculated.";
+  await loadCurrentWeek();
+  renderGames();renderResults();renderAdminResults();await loadTracking();
+}
+
+async function renderSeasonLeaderboard(){
+  const host=$("seasonLeaderboard");
+  if(!host) return;
+  host.innerHTML='<p class="helper">Loading standings…</p>';
+  try{
+    const weeksSnap=await getDocs(collection(db,"weeks"));
+    const rawRealWeeks=weeksSnap.docs.map(d=>({id:d.id,...d.data()})).filter(w=>w.published && !w.isTest);
+    const realWeeks=[];
+    for(const rawWeek of rawRealWeeks) realWeeks.push(await hydrateWeekFromScoreFeed(rawWeek));
+    const totals=new Map();
+    for(const w of realWeeks){
+      const gs=Array.isArray(w.games)?w.games:[];
+      if(!gs.some(isGameComplete)) continue;
+      let entriesSnap;
+      try{entriesSnap=await getDocs(collection(db,"weeks",w.id,"entries"));}catch{continue;}
+      entriesSnap.docs.forEach(d=>{
+        const e={id:d.id,...d.data()};
+        const grade=entryScore(e,gs);
+        const cur=totals.get(e.uid||d.id)||{name:e.name||"Player",points:0,wins:0,losses:0,pushes:0,weeks:0};
+        cur.name=e.name||cur.name; cur.points+=grade.score; cur.wins+=grade.wins; cur.losses+=grade.losses; cur.pushes+=grade.pushes; cur.weeks++;
+        totals.set(e.uid||d.id,cur);
+      });
+    }
+    const rows=[...totals.values()].sort((a,b)=>b.points-a.points||b.wins-a.wins||a.name.localeCompare(b.name));
+    if(!rows.length){host.innerHTML='<p>No graded real weeks yet.</p>';return;}
+    host.innerHTML=`<div class="tracking-table-wrap"><table class="tracking-table standings-table"><thead><tr><th>#</th><th class="sticky-player">Player</th><th>Points</th><th>ATS</th><th>Weeks</th></tr></thead><tbody>${rows.map((r,i)=>`<tr><td>${i+1}</td><td class="sticky-player">${r.name}</td><td class="score-col">${r.points}</td><td>${r.wins}-${r.losses}-${r.pushes}</td><td>${r.weeks}</td></tr>`).join("")}</tbody></table></div>`;
+  }catch(e){host.innerHTML=`<p class="helper">Unable to load season standings: ${e.message}</p>`;}
+}
+
 function renderResults(){
   const gs=gamesForWeek();
-  $("resultsStatus").textContent=weekData?.isTest?"Test results never affect the real season standings.":"Final scores and ATS grading will appear here.";
-  $("resultsView").innerHTML=gs.map(g=>`<div class="result-row"><span>${g.dog} vs ${g.fav} (${g.fav} ${g.spread})</span><span class="result-final">${g.final||"Not final"}</span></div>`).join("");
+  $("resultsStatus").textContent=weekData?.isTest?"Test results never affect the real season standings.":scoreFeedStatusText();
+  $("resultsView").innerHTML=gs.map(g=>{
+    const outcome=gameOutcome(g);
+    const score=(g.liveFavScore!==undefined&&g.liveDogScore!==undefined)?`${shortTeam(g.dog)} ${g.liveDogScore} – ${shortTeam(g.fav)} ${g.liveFavScore}`:(g.final||"Score pending");
+    const state=g.feedCompleted?"Final":(g.feedStatus||"Scheduled");
+    return `<div class="result-row"><span><strong>${g.dog} vs ${g.fav}</strong><br><small>${g.fav} ${g.spread} · ${state}</small></span><span class="result-final">${score}${outcome?` · ${outcome==="PUSH"?"Push":`${outcome} covers`}`:""}</span></div>`;
+  }).join("");
 }
 
 function renderConfirmation(){
@@ -152,11 +447,13 @@ function renderConfirmation(){
 async function loadCurrentWeek(){
   const s=await getDoc(doc(db,"weeks",currentWeekId));
   weekData=s.exists()?{id:s.id,...s.data()}:{id:currentWeekId,label:"Week 1",weekNumber:1,published:false,isTest:false,games:baseGames};
+  weekData=await hydrateWeekFromScoreFeed(weekData);
   if(profile?.role==="admin"){
     $("lockDate").value=weekData.lockDate||"";
     $("lockTime").value=weekData.lockTime||"";
   }
   updateWeekUI();
+  renderAdminResults();
 }
 
 async function loadPicks(){
@@ -169,6 +466,8 @@ async function loadPicks(){
     submittedAt=d.submittedAt||d.updatedAt||null;
   }
   renderGames(); renderMy(); renderResults();
+  await loadTracking();
+  await renderSeasonLeaderboard();
 }
 
 async function switchWeek(id){
@@ -220,6 +519,12 @@ $("savePicks").onclick=async()=>{
 $("viewMyPicks").onclick=()=>setTab("mypicks");
 $("editPicks").onclick=()=>{if(!isLocked())setTab("picks");};
 $("myPicksEdit").onclick=()=>{if(!isLocked())setTab("picks");};
+$("refreshTracking").onclick=async()=>{
+  $("refreshTracking").disabled=true; $("refreshTracking").textContent="Refreshing…";
+  try{await refreshAutomaticScores({force:true}); await renderSeasonLeaderboard();}
+  finally{$("refreshTracking").disabled=false; $("refreshTracking").textContent="Refresh Scores";}
+};
+$("saveResults").onclick=()=>saveWeeklyResults().catch(e=>$("resultsAdminMsg").textContent=e.message);
 
 $("publishWeek").onclick=async()=>{
   if(profile?.role!=="admin")return;
@@ -252,7 +557,13 @@ $("resetTestWeek").onclick=async()=>{
   $("adminMsg").textContent="Test submissions cleared. The test week itself is still available.";
 };
 
-document.querySelectorAll("nav button[data-tab]").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
+document.querySelectorAll("nav button[data-tab]").forEach(b=>b.onclick=async()=>{setTab(b.dataset.tab);if(b.dataset.tab==="tracking")await loadTracking();if(b.dataset.tab==="results")await refreshAutomaticScores();if(b.dataset.tab==="leaderboard")await renderSeasonLeaderboard();});
+
+scoreRefreshTimer=setInterval(async()=>{
+  if(!user||!weekData||weekData.isTest) return;
+  const active=document.querySelector(".tab.active")?.id;
+  if(active==="tracking"||active==="results") await refreshAutomaticScores({force:true});
+},60000);
 
 onAuthStateChanged(auth,async u=>{
   user=u;$("loginCard").hidden=!!u;
