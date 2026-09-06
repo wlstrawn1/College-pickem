@@ -1,22 +1,25 @@
-# College Pick'em V7.0.2 — New Newspaper Hero Banner
+# College Pick'em V7.0.4 — Week 1 Historical Import
 
-This release keeps all V7.0.1 Season Hub, Tracking, Admin, ESPN, and Player Directory functionality and replaces the public hero artwork with the new College Pick'em newspaper-style season banner.
+This build adds a commissioner-only bulk importer for the original Week 1 submissions.
 
-## What changed
+## New
+- Admin → Historical Data → Import Week 1 Submissions.
+- Upload CSV/TSV exported from Google Sheets, or paste the table directly.
+- Preview verifies every player, all 20 picks, and the Game of the Week score prediction before import.
+- Existing Firebase player accounts link automatically by email when possible.
+- Players who have not registered yet are stored as historical participants and still appear in Weekly Tracking, Season Leaderboard, Season History, and player cards.
+- If a historical participant later creates an account with the same email, season calculations automatically merge that Week 1 history into the registered account.
+- Re-import preview warns when an existing Week 1 entry would be replaced.
+- Downloadable Week 1 CSV template included in the Admin interface.
 
-- Replaced the SEC stadium hero with the new full-season College Pick'em newspaper artwork supplied by the commissioner.
-- Uses a brand-new asset filename (`college-pickem-newspaper-banner.png`) so GitHub Pages and browser caches fetch the new image immediately.
-- The hero still uses the full-image/no-crop behavior from the prior build.
-- Bumped CSS/app cache versions and the visible build badge to V7.0.2.
-- No changes to scoring, ESPN imports, Tracking, Leaderboard, Season History, Player Directory, authentication, or Firestore rules.
+## Firestore rules
+The included firestore.rules file adds commissioner permission to create/update historical weekly entries. Publish these rules in Firebase before running the bulk import.
 
-## Upload / replace
+## Import workflow
+1. Export the original Week 1 sheet as CSV (or copy/paste it from Google Sheets).
+2. Admin → Historical Data → Import Week 1 Submissions.
+3. Upload/paste the data.
+4. Review the preview. Import stays disabled until all 20 picks and both tiebreak scores map correctly for every submission.
+5. Click Import Week 1 Entries.
 
-- index.html
-- styles.css
-- app.js
-- college-pickem-newspaper-banner.png
-- firestore.rules
-- README.md
-
-The older banner image files may remain on the host; V7.0.2 no longer references them.
+All V7.0.3 features remain unchanged.

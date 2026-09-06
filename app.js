@@ -21,7 +21,7 @@ const baseGames=[["#13 Alabama", "East Carolina", -28.5, 2], ["#7 Miami", "Stanf
 
 let user=null,profile=null,picks={},submittedAt=null,weekData=null,currentWeekId="week-1",availableWeeks=[],trackingEntries=[];
 let loginIntent=null;
-let scoreFeedLastUpdated=null,scoreFeedError="",scoreRefreshTimer=null,importedSlateCandidates=[],slateView="recommended",slateSearch="",slateReviewSignature="",seasonDataCache=null,playerDirectoryCache=null;
+let scoreFeedLastUpdated=null,scoreFeedError="",scoreRefreshTimer=null,importedSlateCandidates=[],slateView="recommended",slateSearch="",slateReviewSignature="",seasonDataCache=null,playerDirectoryCache=null,historicalImportState=null;
 const ESPN_SCOREBOARD="https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard";
 const scoreFeedCache=new Map();
 const $=x=>document.getElementById(x);
@@ -813,7 +813,7 @@ function rankMovementLabel(delta,hadPrevious,hasBaseline=true){
 async function loadTracking({skipScoreRefresh=false}={}){
   if(!skipScoreRefresh && weekData && !weekData.isTest) weekData=await hydrateWeekFromScoreFeed(weekData);
   const gs=gamesForWeek();
-  $("trackingTitle").textContent=`${weekData?.label||currentWeekId} Tracking`;
+  $("trackingTitle").textContent=`${weekData?.label||currentWeekId} Weekly Tracking`;
   $("trackingComplete").textContent=`${gs.filter(isGameComplete).length} / ${gs.length}`;
   $("trackingRemaining").textContent=String(gs.filter(g=>!isGameComplete(g)).length);
   const championHost=$("weeklyChampionBanner");
@@ -835,8 +835,8 @@ async function loadTracking({skipScoreRefresh=false}={}){
     ]);
     trackingEntries=snap.docs.map(d=>{
       const entry={id:d.id,...d.data()};
-      const currentProfile=directory.get(entry.uid||entry.id);
-      return {...entry,name:currentProfile?.name||entry.name||"Player"};
+      const identity=resolveEntryIdentity(entry,directory);
+      return {...entry,_canonicalUid:identity.canonicalUid,name:identity.name,email:identity.email};
     }).filter(e=>e.submitted!==false);
   }catch(e){
     trackingEntries=[];
@@ -954,7 +954,7 @@ async function saveWeeklyResults(){
     return next;
   });
   await setDoc(doc(db,"weeks",currentWeekId),{games:updated,resultsUpdatedAt:serverTimestamp()},{merge:true});
-  $("resultsAdminMsg").textContent="Weekly results saved. Tracking has been recalculated.";
+  $("resultsAdminMsg").textContent="Weekly results saved. Weekly Tracking has been recalculated.";
   await loadCurrentWeek();
   renderGames();renderResults();renderAdminResults();await loadTracking();
 }
@@ -967,6 +967,266 @@ function htmlEscape(value){
     .replace(/>/g,"&gt;")
     .replace(/"/g,"&quot;")
     .replace(/'/g,"&#039;");
+}
+
+function normalizedImportText(value){
+  return String(value??"")
+    .toLowerCase()
+    .replace(/#\s*\d+/g," ")
+    .replace(/&/g," and ")
+    .replace(/\bst\.?\b/g,"state")
+    .replace(/[^a-z0-9]+/g," ")
+    .replace(/\s+/g," ")
+    .trim();
+}
+
+function compactImportText(value){ return normalizedImportText(value).replace(/\s+/g,""); }
+
+function parseDelimitedText(text){
+  const source=String(text??"").replace(/^\uFEFF/,"");
+  if(!source.trim()) return [];
+  const firstPhysicalLine=source.split(/\r?\n/,1)[0]||"";
+  const delimiter=(firstPhysicalLine.match(/\t/g)||[]).length>(firstPhysicalLine.match(/,/g)||[]).length?"\t":",";
+  const rows=[]; let row=[],field="",quoted=false;
+  for(let i=0;i<source.length;i++){
+    const ch=source[i];
+    if(quoted){
+      if(ch==='"'&&source[i+1]==='"'){field+='"';i++;continue;}
+      if(ch==='"'){quoted=false;continue;}
+      field+=ch;continue;
+    }
+    if(ch==='"'){quoted=true;continue;}
+    if(ch===delimiter){row.push(field);field="";continue;}
+    if(ch==='\n'){
+      row.push(field.replace(/\r$/,""));field="";
+      if(row.some(v=>String(v).trim()!=="")) rows.push(row);
+      row=[];continue;
+    }
+    field+=ch;
+  }
+  row.push(field.replace(/\r$/,""));
+  if(row.some(v=>String(v).trim()!=="")) rows.push(row);
+  return rows;
+}
+
+function findImportColumn(headers,predicate){
+  for(let i=0;i<headers.length;i++) if(predicate(normalizedImportText(headers[i]),compactImportText(headers[i]),headers[i],i)) return i;
+  return -1;
+}
+
+function findGameImportColumn(headers,g,index){
+  const fav=normalizedImportText(g.fav),dog=normalizedImportText(g.dog);
+  const favCompact=fav.replace(/\s+/g,""),dogCompact=dog.replace(/\s+/g,"");
+  const gameNumber=index+1;
+  let best=-1;
+  for(let i=0;i<headers.length;i++){
+    const h=normalizedImportText(headers[i]),hc=h.replace(/\s+/g,"");
+    if(new RegExp(`^(g|game)0?${gameNumber}(\\D|$)`).test(hc)) return i;
+    if(favCompact&&dogCompact&&hc.includes(favCompact)&&hc.includes(dogCompact)) best=i;
+  }
+  return best;
+}
+
+function matchImportedPick(value,g){
+  const raw=normalizedImportText(value),compact=raw.replace(/\s+/g,"");
+  if(!compact) return null;
+  if(["fav","favorite","favourite"].includes(compact)) return g.fav;
+  if(["dog","underdog"].includes(compact)) return g.dog;
+  const fav=compactImportText(g.fav),dog=compactImportText(g.dog);
+  const favHit=fav&&compact.includes(fav),dogHit=dog&&compact.includes(dog);
+  if(favHit&&!dogHit) return g.fav;
+  if(dogHit&&!favHit) return g.dog;
+  return null;
+}
+
+function historicalIdHash(value){
+  let h=2166136261;
+  const str=String(value||"").toLowerCase();
+  for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619);}
+  return (h>>>0).toString(36);
+}
+
+function parseImportDate(value){
+  const raw=String(value??"").trim();
+  if(!raw) return null;
+  const date=new Date(raw);
+  return Number.isNaN(date.getTime())?null:date;
+}
+
+function directoryProfileByEmail(directory,email){
+  const key=String(email||"").trim().toLowerCase();
+  if(!key) return null;
+  for(const p of directory.values()) if(String(p.email||"").trim().toLowerCase()===key) return p;
+  return null;
+}
+
+function resolveEntryIdentity(entry,directory){
+  const direct=directory.get(entry.uid||entry.id);
+  const byEmail=direct||directoryProfileByEmail(directory,entry.email);
+  return {
+    profile:byEmail||null,
+    canonicalUid:byEmail?.uid||entry.uid||entry.id,
+    name:byEmail?.name||entry.name||"Player",
+    email:byEmail?.email||entry.email||""
+  };
+}
+
+async function weekOneForHistoricalImport(){
+  const snap=await getDoc(doc(db,"weeks","week-1"));
+  const data=snap.exists()?{id:snap.id,...snap.data()}:{id:"week-1",label:"Week 1",weekNumber:1,seasonYear:2026,isTest:false,games:baseGames,tiebreakerGameId:"g12"};
+  if(!Array.isArray(data.games)||!data.games.length) data.games=baseGames;
+  if(!data.tiebreakerGameId) data.tiebreakerGameId="g12";
+  return data;
+}
+
+async function prepareHistoricalImport(text){
+  if(profile?.role!=="admin") throw new Error("Commissioner access is required.");
+  const matrix=parseDelimitedText(text);
+  if(matrix.length<2) throw new Error("The file needs a header row and at least one submission.");
+  const headers=matrix[0].map(v=>String(v||"").trim());
+  const week=await weekOneForHistoricalImport();
+  const gs=week.games;
+  const directory=await getPlayerDirectoryMap(true);
+  const existingSnap=await getDocs(collection(db,"weeks","week-1","entries"));
+  const existingIds=new Set(existingSnap.docs.map(d=>d.id));
+
+  const nameCol=findImportColumn(headers,(h)=>/\b(name|player|participant|entrant)\b/.test(h)&&!h.includes("team"));
+  const emailCol=findImportColumn(headers,(h)=>h.includes("email")||h.includes("e mail"));
+  const submittedCol=findImportColumn(headers,(h)=>h.includes("timestamp")||h.includes("submitted")||h.includes("submission time")||h.includes("date submitted"));
+  if(nameCol<0) throw new Error('Could not find a player name column. Name it "Name" or "Player".');
+
+  const gameCols=gs.map((g,i)=>findGameImportColumn(headers,g,i));
+  const missingGameHeaders=gameCols.map((c,i)=>c<0?i:-1).filter(i=>i>=0);
+  const tb=gs.find(g=>g.id===week.tiebreakerGameId)||gs[0];
+  const teamAKey=compactImportText(tb?.dog),teamBKey=compactImportText(tb?.fav);
+  let tbACol=findImportColumn(headers,(h,hc)=>hc==="tiebreakteama"||hc==="teamascore"||((hc.includes(teamAKey)&&!hc.includes(teamBKey))&&(h.includes("score")||h.includes("tiebreak")||h.includes("prediction"))));
+  let tbBCol=findImportColumn(headers,(h,hc)=>hc==="tiebreakteamb"||hc==="teambscore"||((hc.includes(teamBKey)&&!hc.includes(teamAKey))&&(h.includes("score")||h.includes("tiebreak")||h.includes("prediction"))));
+
+  const parsed=[];
+  for(let r=1;r<matrix.length;r++){
+    const cells=matrix[r];
+    const name=String(cells[nameCol]??"").trim().replace(/\s+/g," ");
+    if(!name&&cells.every(v=>String(v||"").trim()==="")) continue;
+    const email=emailCol>=0?String(cells[emailCol]??"").trim().toLowerCase():"";
+    const submittedRaw=submittedCol>=0?String(cells[submittedCol]??"").trim():"";
+    const submittedDate=parseImportDate(submittedRaw);
+    const existingProfile=directoryProfileByEmail(directory,email);
+    const seed=existingProfile?.uid||email||`${name}|${submittedRaw}|${r+1}`;
+    const entryId=existingProfile?.uid||`hist-${historicalIdHash(seed)}`;
+    const rowErrors=[];
+    if(!name) rowErrors.push("Missing player name");
+    const rowPicks={};
+    gs.forEach((g,i)=>{
+      const col=gameCols[i];
+      if(col<0){rowErrors.push(`Game ${i+1} header not mapped`);return;}
+      const pick=matchImportedPick(cells[col],g);
+      if(!pick) rowErrors.push(`Game ${i+1} pick not recognized`); else rowPicks[g.id]=pick;
+    });
+    const tbA=tbACol>=0?Number(String(cells[tbACol]??"").trim()):NaN;
+    const tbB=tbBCol>=0?Number(String(cells[tbBCol]??"").trim()):NaN;
+    if(!Number.isFinite(tbA)||tbA<0) rowErrors.push(`${tb?.dog||"Team A"} tiebreak score missing`);
+    if(!Number.isFinite(tbB)||tbB<0) rowErrors.push(`${tb?.fav||"Team B"} tiebreak score missing`);
+    parsed.push({sourceRow:r+1,entryId,name,email,submittedRaw,submittedDate,picks:rowPicks,tbA,tbB,existingProfile,willOverwrite:existingIds.has(entryId),errors:rowErrors});
+  }
+
+  const idCounts=new Map();
+  parsed.forEach(row=>idCounts.set(row.entryId,(idCounts.get(row.entryId)||0)+1));
+  parsed.forEach(row=>{if(idCounts.get(row.entryId)>1) row.errors.push("Duplicate player identity in import");});
+  const globalErrors=[];
+  if(missingGameHeaders.length) globalErrors.push(`Could not map ${missingGameHeaders.length} game column${missingGameHeaders.length===1?"":"s"}: ${missingGameHeaders.map(i=>`G${i+1}`).join(", ")}.`);
+  if(tbACol<0||tbBCol<0) globalErrors.push(`Could not map both Game of the Week score columns (${tb?.dog||"Team A"} / ${tb?.fav||"Team B"}).`);
+  const valid=parsed.filter(row=>!row.errors.length);
+  return {week,headers,rows:parsed,valid,globalErrors,nameCol,emailCol,submittedCol,gameCols,tbACol,tbBCol};
+}
+
+function renderHistoricalImportPreview(state){
+  const host=$("historicalImportPreview"),status=$("historicalImportStatus"),button=$("runHistoricalImport");
+  if(!host||!status||!button) return;
+  const invalid=state.rows.length-state.valid.length;
+  const linked=state.rows.filter(r=>r.existingProfile).length;
+  const overwrite=state.rows.filter(r=>r.willOverwrite).length;
+  const ready=state.rows.length>0&&!invalid&&!state.globalErrors.length;
+  status.textContent=ready?`${state.rows.length} Week 1 submissions are ready to import.`:`Preview found ${invalid+state.globalErrors.length} issue${invalid+state.globalErrors.length===1?"":"s"}. Fix the source data before importing.`;
+  button.disabled=!ready;
+  button.textContent=ready?`Import ${state.rows.length} Week 1 Entries`:`Import Week 1 Entries`;
+  const errors=state.globalErrors.length?`<div class="history-import-errors"><strong>Column mapping needs attention:</strong><br>${state.globalErrors.map(htmlEscape).join("<br>")}</div>`:"";
+  host.innerHTML=`${errors}<div class="history-import-summary">
+      <div><span>Submissions</span><strong>${state.rows.length}</strong></div>
+      <div><span>Ready</span><strong>${state.valid.length}</strong></div>
+      <div><span>Linked Accounts</span><strong>${linked}</strong></div>
+      <div><span>Existing Entries</span><strong>${overwrite}</strong></div>
+    </div>
+    <table class="history-import-table"><thead><tr><th>Row</th><th>Player</th><th>Email / Link</th><th>Picks</th><th>Tiebreak</th><th>Status</th></tr></thead><tbody>${state.rows.map(row=>{
+      const statusText=row.errors.length?row.errors.join("; "):(row.willOverwrite?"Ready · replaces existing Week 1 entry":"Ready");
+      const linkText=row.existingProfile?`Linked to ${row.existingProfile.email||"account"}`:(row.email?"Historical · will link by email later":"Historical participant");
+      return `<tr class="${row.errors.length?"invalid-row":""}"><td>${row.sourceRow}</td><td><strong>${htmlEscape(row.name||"—")}</strong></td><td>${htmlEscape(row.email||"No email")}<br><small>${htmlEscape(linkText)}</small></td><td><span class="${Object.keys(row.picks).length===state.week.games.length?"ok":"bad"}">${Object.keys(row.picks).length}/${state.week.games.length}</span></td><td>${Number.isFinite(row.tbA)&&Number.isFinite(row.tbB)?`<span class="ok">${row.tbA}-${row.tbB}</span>`:'<span class="bad">Missing</span>'}</td><td class="${row.errors.length?"bad":row.willOverwrite?"warn":"ok"}">${htmlEscape(statusText)}</td></tr>`;
+    }).join("")}</tbody></table>`;
+}
+
+async function previewHistoricalImport(){
+  const text=$("historicalImportPaste")?.value||"";
+  if(!text.trim()){if($("historicalImportStatus")) $("historicalImportStatus").textContent="Choose a CSV/TSV file or paste the Week 1 table first.";return;}
+  if($("historicalImportStatus")) $("historicalImportStatus").textContent="Checking Week 1 submissions…";
+  if($("runHistoricalImport")) $("runHistoricalImport").disabled=true;
+  try{
+    historicalImportState=await prepareHistoricalImport(text);
+    renderHistoricalImportPreview(historicalImportState);
+  }catch(e){
+    historicalImportState=null;
+    if($("historicalImportStatus")) $("historicalImportStatus").textContent=e.message;
+    if($("historicalImportPreview")) $("historicalImportPreview").innerHTML=`<p class="helper">${htmlEscape(e.message)}</p>`;
+  }
+}
+
+async function importHistoricalWeekOne(){
+  if(profile?.role!=="admin"||!historicalImportState) return;
+  const state=historicalImportState;
+  if(state.globalErrors.length||state.rows.some(r=>r.errors.length)){
+    $("historicalImportStatus").textContent="Resolve the preview errors before importing.";return;
+  }
+  const button=$("runHistoricalImport");
+  button.disabled=true;button.textContent="Importing…";
+  try{
+    const tb=state.week.games.find(g=>g.id===state.week.tiebreakerGameId)||state.week.games[0];
+    await Promise.all(state.rows.map(row=>setDoc(doc(db,"weeks","week-1","entries",row.entryId),{
+      uid:row.entryId,
+      name:row.name,
+      email:row.email||null,
+      picks:row.picks,
+      tiebreak:{teamA:row.tbA,teamB:row.tbB,teamAName:tb?.dog||"Team A",teamBName:tb?.fav||"Team B",gameId:tb?.id||null},
+      submitted:true,
+      submittedAt:row.submittedDate?Timestamp.fromDate(row.submittedDate):serverTimestamp(),
+      updatedAt:serverTimestamp(),
+      isTest:false,
+      historical:true,
+      historicalSource:"Week 1 bulk import",
+      importedAt:serverTimestamp()
+    })));
+    await setDoc(doc(db,"weeks","week-1"),{historicalImportCount:state.rows.length,historicalImportedAt:serverTimestamp()},{merge:true});
+    playerDirectoryCache=null;seasonDataCache=null;
+    $("historicalImportStatus").textContent=`Imported ${state.rows.length} Week 1 submissions successfully.`;
+    button.textContent=`Imported ${state.rows.length} Entries`;
+    if(currentWeekId==="week-1"){
+      await loadCurrentWeek();
+      await loadTracking({skipScoreRefresh:true});
+    }
+    await renderSeasonLeaderboard();
+    await loadCommissionerDashboard();
+  }catch(e){
+    $("historicalImportStatus").textContent=`Import failed: ${e.message}`;
+    button.disabled=false;button.textContent=`Import ${state.rows.length} Week 1 Entries`;
+  }
+}
+
+async function downloadHistoricalTemplate(){
+  const week=await weekOneForHistoricalImport();
+  const gs=week.games;
+  const tb=gs.find(g=>g.id===week.tiebreakerGameId)||gs[0];
+  const headers=["Name","Email","Submitted At",...gs.map((g,i)=>`G${i+1}: ${g.dog} vs ${g.fav}`),`Tiebreak ${tb?.dog||"Team A"} Score`,`Tiebreak ${tb?.fav||"Team B"} Score`];
+  const csv=headers.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")+"\n";
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+  const url=URL.createObjectURL(blob),a=document.createElement("a");
+  a.href=url;a.download="week-1-historical-import-template.csv";document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
 }
 
 async function getPlayerDirectoryMap(force=false){
@@ -1000,7 +1260,7 @@ function renderAdminPlayerDirectory(players){
   if(status){
     status.textContent=duplicates.length
       ?`${duplicates.length} player profile${duplicates.length===1?" has":"s have"} a duplicate display name. Edit the names below and save.`
-      :"Display names are unique. Changes here flow through Tracking, Leaderboard, History, and Player Cards.";
+      :"Display names are unique. Changes here flow through Weekly Tracking, Season Leaderboard, History, and Player Cards.";
   }
   if(!players.length){host.innerHTML='<p class="helper">No player profiles found yet.</p>';return;}
   const ordered=players.slice().sort((a,b)=>String(a.name||a.email||"").localeCompare(String(b.name||b.email||"")));
@@ -1064,8 +1324,8 @@ async function buildSeasonData(){
     try{entriesSnap=await getDocs(collection(db,"weeks",w.id,"entries"));}catch{continue;}
     const entries=entriesSnap.docs.map(d=>{
       const entry={id:d.id,...d.data()};
-      const currentProfile=directory.get(entry.uid||entry.id);
-      return {...entry,name:currentProfile?.name||entry.name||"Player",email:currentProfile?.email||entry.email||""};
+      const identity=resolveEntryIdentity(entry,directory);
+      return {...entry,_canonicalUid:identity.canonicalUid,name:identity.name,email:identity.email};
     }).filter(e=>e.submitted!==false);
     const ranked=rankWeeklyEntries(entries,w);
     const champion=weeklyChampionInfo(entries,w);
@@ -1075,7 +1335,7 @@ async function buildSeasonData(){
   const totals=new Map();
   for(const wr of weekRecords){
     for(const e of wr.ranked){
-      const uid=e.uid||e.id;
+      const uid=e._canonicalUid||e.uid||e.id;
       const displayName=directory.get(uid)?.name||e.name||"Player";
       const cur=totals.get(uid)||{
         uid,name:displayName,email:e.email||directory.get(uid)?.email||"",points:0,wins:0,losses:0,pushes:0,weeks:0,weeklyWins:0,bestWeek:0,weekRows:[]
@@ -1092,7 +1352,7 @@ async function buildSeasonData(){
     }
     if(wr.final&&wr.champion){
       wr.champion.winners.forEach(winner=>{
-        const uid=winner.uid||winner.id;
+        const uid=winner._canonicalUid||winner.uid||winner.id;
         const cur=totals.get(uid);
         if(cur) cur.weeklyWins++;
       });
@@ -1106,7 +1366,7 @@ async function buildSeasonData(){
     for(const wr of weekRecords){
       if(wr.week.id===latest.week.id) continue;
       for(const e of wr.ranked){
-        const uid=e.uid||e.id;
+        const uid=e._canonicalUid||e.uid||e.id;
         const cur=previousTotals.get(uid)||{uid,name:e.name||"Player",points:0,wins:0,losses:0,pushes:0};
         cur.points+=e._grade.score;cur.wins+=e._grade.wins;cur.losses+=e._grade.losses;cur.pushes+=e._grade.pushes;
         previousTotals.set(uid,cur);
@@ -1372,6 +1632,19 @@ $("reviewImportedSlate").onclick=()=>reviewImportedSlate();
 $("saveImportedSlate").onclick=()=>saveImportedSlateDraft().catch(e=>$("importSlateMsg").textContent=e.message);
 $("publishWeekBuilder").onclick=()=>$("publishWeek").click();
 $("importGameCount").onchange=()=>{if(importedSlateCandidates.length)selectRecommendedSlate();};
+if($("historicalImportFile")) $("historicalImportFile").onchange=async e=>{
+  const file=e.target.files?.[0];
+  if(!file) return;
+  try{
+    const text=await file.text();
+    $("historicalImportPaste").value=text;
+    $("historicalImportStatus").textContent=`Loaded ${file.name}. Previewing…`;
+    await previewHistoricalImport();
+  }catch(err){$("historicalImportStatus").textContent=`Could not read file: ${err.message}`;}
+};
+if($("previewHistoricalImport")) $("previewHistoricalImport").onclick=()=>previewHistoricalImport();
+if($("runHistoricalImport")) $("runHistoricalImport").onclick=()=>importHistoricalWeekOne();
+if($("downloadHistoricalTemplate")) $("downloadHistoricalTemplate").onclick=()=>downloadHistoricalTemplate().catch(e=>$("historicalImportStatus").textContent=e.message);
 
 $("publishWeek").onclick=async()=>{
   if(profile?.role!=="admin")return;

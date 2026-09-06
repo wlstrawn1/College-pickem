@@ -40,7 +40,7 @@ service cloud.firestore {
           (request.auth.uid == uid || isAdmin() || !beforeLock(weekId));
 
         allow create, update: if signedIn() &&
-          request.auth.uid == uid && beforeLock(weekId);
+          ((request.auth.uid == uid && beforeLock(weekId)) || isAdmin());
 
         allow delete: if isAdmin();
       }

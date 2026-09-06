@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>College Pick'em</title>
-  <link rel="stylesheet" href="styles.css?v=7.0.2">
+  <link rel="stylesheet" href="styles.css?v=7.0.4">
 </head>
 <body>
 
@@ -21,12 +21,12 @@
       <div class="eyebrow">THE SATURDAY SHEET</div>
       <div class="brand-row">
         <h1>College Pick'em</h1>
-        <span class="version-badge">v7.0.2</span>
+        <span class="version-badge">v7.0.4</span>
       </div>
       <p class="masthead-deck">Make the picks. Beat the number. Own Saturday.</p>
     </div>
     <div class="hero-wrap">
-      <img class="hero-image" src="college-pickem-newspaper-banner.png?v=7.0.2" alt="College Football Pick'em newspaper-style season banner">
+      <img class="hero-image" src="college-pickem-newspaper-banner.png?v=7.0.4" alt="College Football Pick'em newspaper-style season banner">
     </div>
     <div id="authBox"></div>
   </div>
@@ -36,8 +36,8 @@
   <div class="nav-inner">
     <button data-tab="picks" class="active">Picks</button>
     <button data-tab="mypicks">My Picks</button>
-    <button data-tab="leaderboard">Leaderboard</button>
-    <button data-tab="tracking">Tracking</button>
+    <button data-tab="leaderboard">Season Leaderboard</button>
+    <button data-tab="tracking">Weekly Tracking</button>
     <button data-tab="results">Results</button>
     <button data-tab="admin" id="adminTab" hidden>Admin</button>
   </div>
@@ -241,7 +241,7 @@
       <div class="tracking-shell">
         <div class="tracking-head">
           <div>
-            <h2 id="trackingTitle">Week Tracking</h2>
+            <h2 id="trackingTitle">Weekly Tracking</h2>
             <p id="trackingStatus" class="muted">Picks become visible to the league after the weekly lock.</p>
           </div>
           <button id="refreshTracking">Refresh Scores</button>
@@ -316,10 +316,33 @@
             <div>
               <div class="login-kicker gold">PLAYER DIRECTORY</div>
               <h3>League Display Names</h3>
-              <p id="adminPlayerDirectoryStatus" class="helper">Use this to clean up duplicate or incorrect names. Changes flow through Tracking, Leaderboard, History, and Player Cards.</p>
+              <p id="adminPlayerDirectoryStatus" class="helper">Use this to clean up duplicate or incorrect names. Changes flow through Weekly Tracking, Season Leaderboard, History, and Player Cards.</p>
             </div>
           </div>
           <div id="adminPlayerDirectory" class="player-directory-list"><p class="helper">Loading players…</p></div>
+        </section>
+
+        <section class="historical-import-panel">
+          <div class="historical-import-head">
+            <div>
+              <div class="login-kicker gold">HISTORICAL DATA</div>
+              <h3>Import Week 1 Submissions</h3>
+              <p class="helper">Bulk-load the original Week 1 spreadsheet so every historical pick counts in Weekly Tracking, the Season Leaderboard, player cards, and the archive. Existing player accounts are linked automatically by email when possible.</p>
+            </div>
+            <span id="historicalImportBadge" class="history-import-badge">WEEK 1</span>
+          </div>
+          <div class="historical-import-actions">
+            <label class="historical-file-label"><span>Upload CSV / TSV</span><input id="historicalImportFile" type="file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values"></label>
+            <button id="downloadHistoricalTemplate" type="button">Download Week 1 Template</button>
+          </div>
+          <label class="historical-paste-label" for="historicalImportPaste">Or paste directly from Google Sheets</label>
+          <textarea id="historicalImportPaste" class="historical-import-paste" rows="5" placeholder="Paste the Week 1 table here, including the header row."></textarea>
+          <div class="historical-import-buttons">
+            <button id="previewHistoricalImport" type="button">Preview Week 1 Data</button>
+            <button id="runHistoricalImport" class="primary" type="button" disabled>Import Week 1 Entries</button>
+          </div>
+          <p id="historicalImportStatus" class="msg">No historical file loaded yet.</p>
+          <div id="historicalImportPreview" class="historical-import-preview"><p class="helper">The preview will verify player names, all 20 picks, and the Game of the Week tiebreak before anything is written to Firestore.</p></div>
         </section>
 
         <label for="lockDate"><strong>Pick Lock Date</strong></label>
@@ -398,6 +421,6 @@
 </footer>
 
 
-<script type="module" src="app.js?v=7.0.2"></script>
+<script type="module" src="app.js?v=7.0.4"></script>
 </body>
 </html>
