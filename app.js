@@ -1,5 +1,5 @@
 import {initializeApp} from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-import {getAuth,GoogleAuthProvider,signInWithPopup,createUserWithEmailAndPassword,signInWithEmailAndPassword,sendPasswordResetEmail,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+import {getAuth,GoogleAuthProvider,signInWithPopup,createUserWithEmailAndPassword,signInWithEmailAndPassword,sendPasswordResetEmail,signOut,onAuthStateChanged,setPersistence,browserLocalPersistence} from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
 import {getFirestore,doc,getDoc,setDoc,deleteDoc,getDocs,collection,query,orderBy,serverTimestamp,Timestamp} from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
 const firebaseConfig={
@@ -14,6 +14,7 @@ const firebaseConfig={
 
 const fb=initializeApp(firebaseConfig);
 const auth=getAuth(fb);
+await setPersistence(auth,browserLocalPersistence);
 const db=getFirestore(fb);
 const google=new GoogleAuthProvider();
 const baseGames=[["#13 Alabama", "East Carolina", -28.5, 2], ["#7 Miami", "Stanford", -24.5, 2], ["#14 USC", "Fresno State", -22.5, 2], ["#6 Indiana", "North Texas", -40.5, 2], ["#23 Houston", "Oregon State", -20.5, 2], ["Auburn", "Baylor", -6.5, 1], ["#2 Oregon", "Boise State", -24.5, 2], ["#18 Penn State", "Marshall", -24.5, 2], ["Cincinnati", "Boston College", -7.5, 1], ["Arkansas", "North Alabama", -40.5, 1], ["Mississippi State", "UL Monroe", -28.5, 1], ["#11 LSU", "Clemson", -10.5, 2], ["#16 Michigan", "Western Michigan", -27.5, 2], ["Florida", "Florida Atlantic", -27.5, 1], ["UCLA", "California", -1.5, 1], ["#17 Washington", "Washington State", -23.5, 2], ["#4 Notre Dame", "Wisconsin", -20.5, 2], ["#9 Ole Miss", "#24 Louisville", -6.5, 3], ["#19 SMU", "Florida State", -2.5, 2], ["Georgia Tech", "Colorado", -6.5, 1]].map((g,i)=>({id:"g"+(i+1),fav:g[0],dog:g[1],spread:g[2],points:g[3]}));
@@ -59,11 +60,36 @@ function isLocked(){
 
 function gamesForWeek(){ return Array.isArray(weekData?.games) && weekData.games.length ? weekData.games : baseGames; }
 
+async function seedWeekOne(){
+  if(profile?.role!=="admin") return;
+  currentWeekId="week-1";
+  const existing=await getDoc(doc(db,"weeks","week-1"));
+  const existingData=existing.exists()?existing.data():{};
+  await setDoc(doc(db,"weeks","week-1"),{
+    label:"Week 1",
+    weekNumber:1,
+    isTest:false,
+    published:existingData.published??false,
+    games:baseGames,
+    createdAt:existingData.createdAt||serverTimestamp(),
+    slateUpdatedAt:serverTimestamp()
+  },{merge:true});
+  await loadWeeks();
+  await switchWeek("week-1");
+  $("adminMsg").textContent="Week 1 loaded with all 20 games. Set the lock date/time, then Publish / Update Week when you are ready.";
+  setTab("admin");
+}
+
 async function loadWeeks(){
   const snap=await getDocs(collection(db,"weeks"));
   availableWeeks=snap.docs.map(d=>({id:d.id,...d.data()}))
     .filter(w=>w.published || profile?.role==="admin")
     .sort((a,b)=>(a.weekNumber||999)-(b.weekNumber||999));
+
+  // Always let the commissioner preview the built-in Week 1 slate before it is written to Firestore.
+  if(profile?.role==="admin" && !availableWeeks.some(w=>w.id==="week-1")){
+    availableWeeks.unshift({id:"week-1",label:"Week 1",weekNumber:1,isTest:false,published:false,games:baseGames,virtual:true});
+  }
 
   if(!availableWeeks.some(w=>w.id===currentWeekId)){
     currentWeekId=availableWeeks[0]?.id||"week-1";
@@ -484,12 +510,25 @@ async function loadProfile(){
   if($("footerUser")) $("footerUser").textContent=profile.name||user.email;
   $("profileCard").hidden=true;$("appArea").hidden=false;$("adminTab").hidden=profile.role!=="admin";
   await loadWeeks(); await switchWeek(currentWeekId);
+  if(profile.role==="admin"){
+    setTab("admin");
+  }
 }
 
 $("weekSelectTop").onchange=()=>switchWeek($("weekSelectTop").value);
-$("googleBtn").onclick=()=>signInWithPopup(auth,google).catch(e=>$("authMsg").textContent=e.message);
-$("emailCreate").onclick=()=>createUserWithEmailAndPassword(auth,$("email").value,$("password").value).catch(e=>$("authMsg").textContent=e.message);
-$("emailSignIn").onclick=()=>signInWithEmailAndPassword(auth,$("email").value,$("password").value).catch(e=>$("authMsg").textContent=e.message);
+$("googleBtn").onclick=()=>{loginIntent="player";return signInWithPopup(auth,google).catch(e=>$("authMsg").textContent=e.message);};
+$("emailCreate").onclick=()=>{loginIntent="player";return createUserWithEmailAndPassword(auth,$("email").value,$("password").value).catch(e=>$("authMsg").textContent=e.message);};
+$("emailSignIn").onclick=()=>{loginIntent="player";return signInWithEmailAndPassword(auth,$("email").value,$("password").value).catch(e=>$("authMsg").textContent=e.message);};
+$("adminSignIn").onclick=async()=>{
+  loginIntent="admin"; $("adminAuthMsg").textContent="Signing in…";
+  try{await signInWithEmailAndPassword(auth,$("adminEmail").value.trim(),$("adminPassword").value);}
+  catch(e){$("adminAuthMsg").textContent=e.message;}
+};
+$("adminGoogle").onclick=async()=>{
+  loginIntent="admin"; $("adminAuthMsg").textContent="Signing in…";
+  try{await signInWithPopup(auth,google);}
+  catch(e){$("adminAuthMsg").textContent=e.message;}
+};
 $("forgotPassword").onclick=async()=>{
   const email=$("email").value.trim();
   if(!email){$("authMsg").textContent="Enter your email address first, then click Forgot password.";return;}
@@ -525,6 +564,7 @@ $("refreshTracking").onclick=async()=>{
   finally{$("refreshTracking").disabled=false; $("refreshTracking").textContent="Refresh Scores";}
 };
 $("saveResults").onclick=()=>saveWeeklyResults().catch(e=>$("resultsAdminMsg").textContent=e.message);
+$("loadWeek1").onclick=()=>seedWeekOne().catch(e=>$("adminMsg").textContent=e.message);
 
 $("publishWeek").onclick=async()=>{
   if(profile?.role!=="admin")return;
@@ -566,7 +606,20 @@ scoreRefreshTimer=setInterval(async()=>{
 },60000);
 
 onAuthStateChanged(auth,async u=>{
-  user=u;$("loginCard").hidden=!!u;
-  if(u){$("authBox").innerHTML=`<button id="logout">${u.email} · Sign out</button>`;$("logout").onclick=()=>signOut(auth);await loadProfile();}
-  else{$("authBox").innerHTML="";$("profileCard").hidden=true;$("appArea").hidden=true;}
+  user=u;
+  if($("loginChooser")) $("loginChooser").hidden=!!u;
+  if(u){
+    $("authBox").innerHTML=`<button id="logout">${u.email} · Sign out</button>`;
+    $("logout").onclick=()=>signOut(auth);
+    await loadProfile();
+    if(loginIntent==="admin" && profile?.role!=="admin"){
+      if($("adminAuthMsg")) $("adminAuthMsg").textContent="That account is not authorized as a commissioner.";
+      await signOut(auth);
+      return;
+    }
+  }else{
+    $("authBox").innerHTML="";
+    $("profileCard").hidden=true;$("appArea").hidden=true;
+    if($("loginChooser")) $("loginChooser").hidden=false;
+  }
 });

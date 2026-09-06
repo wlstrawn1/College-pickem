@@ -449,3 +449,56 @@ nav{
 #trackingStatus{min-height:20px}
 #refreshTracking:disabled{opacity:.65}
 .admin-results-panel h3{margin-bottom:4px}
+
+
+/* V6.5.0 — dedicated commissioner login + Week 1 preload */
+.login-grid{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  gap:18px;
+  align-items:start;
+  max-width:980px;
+  margin:0 auto;
+}
+.login-grid .card{max-width:none;margin:0}
+.login-card{min-height:430px}
+.login-kicker{
+  display:inline-block;
+  font-size:12px;
+  font-weight:900;
+  letter-spacing:.12em;
+  color:#ff5961;
+  margin-bottom:7px;
+}
+.login-kicker.gold{color:#f0b429}
+.admin-login-card{
+  border-color:#6f5720;
+  background:linear-gradient(180deg,#1c1b16,#14191f);
+}
+.admin-primary{
+  width:100%;
+  background:linear-gradient(180deg,#c99625,#9d6e0b);
+  border-color:#e0b94d;
+  color:#fff;
+  font-weight:800;
+  margin:8px 0;
+}
+.week-one-seed{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:20px;
+  padding:16px;
+  margin:18px 0 8px;
+  border:1px solid #6f5720;
+  background:#1c1b16;
+  border-radius:10px;
+}
+.week-one-seed p{margin:5px 0 0}
+.week-one-seed .admin-primary{width:auto;min-width:190px;margin:0}
+@media(max-width:800px){
+  .login-grid{grid-template-columns:1fr}
+  .login-card{min-height:0}
+  .week-one-seed{align-items:stretch;flex-direction:column}
+  .week-one-seed .admin-primary{width:100%}
+}

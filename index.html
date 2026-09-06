@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>College Pick'em</title>
-  <link rel="stylesheet" href="styles.css?v=6.4.0">
+  <link rel="stylesheet" href="styles.css?v=6.5.0">
 </head>
 <body>
 
@@ -15,7 +15,7 @@
 <header>
   <div class="brand-row">
     <h1>College Pick'em</h1>
-    <span class="version-badge">v6.4.0</span>
+    <span class="version-badge">v6.5.0</span>
   </div>
   <div id="authBox"></div>
 </header>
@@ -30,20 +30,35 @@
 </nav>
 
 <main>
-  <section id="loginCard" class="card">
-    <h2>Sign in to play</h2>
-    <p>Your picks will be saved to your account and available on any device.</p>
-    <button id="googleBtn" class="primary">Continue with Google</button>
-    <div class="or">or</div>
-    <input id="email" type="email" placeholder="Email">
-    <input id="password" type="password" placeholder="Password (6+ characters)">
-    <button id="forgotPassword" class="link-btn" type="button">Forgot password?</button>
-    <div class="row">
-      <button id="emailSignIn">Sign in</button>
-      <button id="emailCreate">Create account</button>
-    </div>
-    <p id="authMsg" class="msg"></p>
-  </section>
+  <div id="loginChooser" class="login-grid">
+    <section id="loginCard" class="card login-card">
+      <div class="login-kicker">PLAYER ACCESS</div>
+      <h2>Sign in to play</h2>
+      <p>Your picks will be saved to your account and available on any device.</p>
+      <button id="googleBtn" class="primary">Continue with Google</button>
+      <div class="or">or</div>
+      <input id="email" type="email" placeholder="Email">
+      <input id="password" type="password" placeholder="Password (6+ characters)">
+      <button id="forgotPassword" class="link-btn" type="button">Forgot password?</button>
+      <div class="row">
+        <button id="emailSignIn">Sign in</button>
+        <button id="emailCreate">Create account</button>
+      </div>
+      <p id="authMsg" class="msg"></p>
+    </section>
+
+    <section id="adminLoginCard" class="card login-card admin-login-card">
+      <div class="login-kicker gold">COMMISSIONER ACCESS</div>
+      <h2>Admin Login</h2>
+      <p>Use your commissioner account to go straight to weekly setup, results overrides, and league controls.</p>
+      <input id="adminEmail" type="email" placeholder="Commissioner email" autocomplete="username">
+      <input id="adminPassword" type="password" placeholder="Password" autocomplete="current-password">
+      <button id="adminSignIn" class="admin-primary">Enter Commissioner Dashboard</button>
+      <button id="adminGoogle" type="button">Continue with Google as Admin</button>
+      <p class="helper">Your admin session stays signed in on this browser until you choose Sign out.</p>
+      <p id="adminAuthMsg" class="msg"></p>
+    </section>
+  </div>
 
   <section id="profileCard" class="card" hidden>
     <h2>Finish your profile</h2>
@@ -226,6 +241,14 @@
 
         <p class="timezone-note">Time Zone: Central Time (America/Chicago)</p>
 
+        <div class="week-one-seed">
+          <div>
+            <strong>Week 1 Slate</strong>
+            <p class="helper">The 20 Week 1 matchups are already built into this version. Load them into Firestore once, then set the lock time and publish.</p>
+          </div>
+          <button id="loadWeek1" class="admin-primary">Load Week 1 Games</button>
+        </div>
+
         <div class="admin-actions">
           <button id="publishWeek" class="primary">Publish / Update Week</button>
           <button id="createTestWeek">Create Test Week</button>
@@ -268,6 +291,6 @@
 </footer>
 
 
-<script type="module" src="app.js?v=6.4.0"></script>
+<script type="module" src="app.js?v=6.5.0"></script>
 </body>
 </html>
