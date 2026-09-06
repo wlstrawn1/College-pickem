@@ -1,24 +1,19 @@
-# College Pick'em V7.0.14 — Latest Published Week Default
+# College Pick'em V7.0.15 — Contextual Week 1 Import Tool
 
-This build includes all V7.0.13 future-week draft tools plus automatic player landing behavior.
+This release keeps the historical Week 1 bulk-import tool out of the normal weekly commissioner workflow.
 
-## Player week behavior
-- Commissioners can create Week 2, Week 3, etc. as unpublished drafts.
-- Draft weeks remain visible only to admins.
-- Players continue to see only published weeks.
-- On a player's next page load/sign-in, the site automatically opens the highest-numbered published real week.
-- Test weeks never become the default player week.
-- Players can still use the selector to review older published weeks without being forced back to the newest week during that session.
+Changes:
+- The Week 1 historical import panel is visible only when Week 1 is selected.
+- Selecting Week 2 Draft, Week 3, or any other week hides the historical importer automatically.
+- Returning to Week 1 makes the importer available again for recovery or corrections.
+- All V7.0.14 behavior remains, including future draft weeks and automatic player landing on the newest published real week.
 
-Example: once Week 2 is published, players land on Week 2 after refresh/sign-in, while Week 1 remains available in the selector.
-
-## Upload/replace
+Upload/replace:
 - index.html
-- styles-v7.0.14.css
-- app-v7.0.14.js
+- styles-v7.0.15.css
+- app-v7.0.15.js
 - college-pickem-newspaper-banner.png
 - cfb-pickem-banner.png
 - sec-pickem-banner-v2.png
 - README.md
-
-Firestore rules are unchanged from the current rules already published.
+- firestore.rules (unchanged)
