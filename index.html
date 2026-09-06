@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>College Pick'em</title>
-  <link rel="stylesheet" href="styles.css?v=6.8.1">
+  <link rel="stylesheet" href="styles.css?v=7.0.0">
 </head>
 <body>
 
@@ -21,12 +21,12 @@
       <div class="eyebrow">THE SATURDAY SHEET</div>
       <div class="brand-row">
         <h1>College Pick'em</h1>
-        <span class="version-badge">v6.8.1</span>
+        <span class="version-badge">v7.0.0</span>
       </div>
       <p class="masthead-deck">Make the picks. Beat the number. Own Saturday.</p>
     </div>
     <div class="hero-wrap">
-      <img class="hero-image" src="sec-pickem-banner-v2.png?v=6.8.1" alt="College Football Pick'em SEC stadium banner">
+      <img class="hero-image" src="sec-pickem-banner-v2.png?v=7.0.0" alt="College Football Pick'em SEC stadium banner">
     </div>
     <div id="authBox"></div>
   </div>
@@ -199,10 +199,38 @@
     </div>
 
     <div id="leaderboard" class="tab">
-      <div class="card">
-        <h2>Season Leaderboard</h2>
-        <p class="helper">Real weeks count toward the season. Test weeks are always excluded.</p>
+      <div class="card season-hub-card">
+        <div class="season-hub-head">
+          <div>
+            <div class="login-kicker gold">SEASON HUB</div>
+            <h2>Season Leaderboard</h2>
+            <p class="helper">Real weeks count toward the season. Weekly wins use the Game of the Week score prediction as the automatic tiebreaker.</p>
+          </div>
+        </div>
         <div id="seasonLeaderboard"><p>No graded real weeks yet.</p></div>
+      </div>
+
+      <div class="card season-history-card">
+        <div class="season-hub-head">
+          <div>
+            <div class="login-kicker gold">WEEKLY ARCHIVE</div>
+            <h2>Season History</h2>
+            <p class="helper">Open any completed week to see the champion, final standings, and Game of the Week tiebreak.</p>
+          </div>
+        </div>
+        <div id="seasonHistory"><p class="helper">No completed weeks yet.</p></div>
+        <div id="seasonHistoryDetail" class="season-history-detail"></div>
+      </div>
+
+      <div id="playerProfilePanel" class="card player-profile-panel" hidden>
+        <div class="player-profile-head">
+          <div>
+            <div class="login-kicker gold">PLAYER CARD</div>
+            <h2 id="playerProfileName">Player</h2>
+          </div>
+          <button id="closePlayerProfile" type="button">Close</button>
+        </div>
+        <div id="playerProfileBody"></div>
       </div>
     </div>
 
@@ -216,6 +244,8 @@
           </div>
           <button id="refreshTracking">Refresh Scores</button>
         </div>
+
+        <div id="weeklyChampionBanner" class="weekly-champion-banner" hidden></div>
 
         <div class="tracking-summary-grid">
           <div class="tracking-summary-card">
@@ -292,7 +322,7 @@
             <div>
               <div class="login-kicker gold">WEEKLY CARD BUILDER</div>
               <h3>Import Games from ESPN</h3>
-              <p class="helper">Load the FBS slate, choose the 20 games you want, confirm the favorite/spread, assign point values, and save the week as a draft. Nothing publishes until you hit Publish / Update Week.</p>
+              <p class="helper">Load the college football slate, start with the recommended games, confirm every spread, review the final card, and save it as a draft. Nothing publishes until you approve it.</p>
             </div>
           </div>
           <div class="slate-builder-controls">
@@ -302,10 +332,14 @@
             <button id="importEspnSlate" class="admin-primary">Load ESPN Slate</button>
           </div>
           <p id="importSlateMsg" class="msg"></p>
-          <div id="importSlatePreview" class="slate-preview"><p class="helper">Load a week to preview the available FBS games.</p></div>
-          <div class="slate-builder-actions">
-            <button id="saveImportedSlate" class="primary" disabled>Save Selected Games as Draft</button>
-            <button id="loadWeek1">Use Built-In Week 1 Slate</button>
+          <div id="importSlatePreview" class="slate-preview"><p class="helper">Load a week to preview the available games involving FBS teams.</p></div>
+          <div id="slateReviewPanel" class="slate-review-panel" hidden></div>
+          <div class="slate-builder-actions sticky-builder-actions">
+            <span id="slateReadyState" class="slate-ready-state">FINISH CARD SETUP</span>
+            <button id="reviewImportedSlate" type="button" disabled>Review Selected Card</button>
+            <button id="saveImportedSlate" class="primary" disabled>Save Draft</button>
+            <button id="publishWeekBuilder" type="button">Publish Week</button>
+            <button id="loadWeek1" type="button">Use Built-In Week 1 Slate</button>
           </div>
         </div>
 
@@ -351,6 +385,6 @@
 </footer>
 
 
-<script type="module" src="app.js?v=6.8.1"></script>
+<script type="module" src="app.js?v=7.0.0"></script>
 </body>
 </html>

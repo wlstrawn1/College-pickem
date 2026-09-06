@@ -577,3 +577,156 @@ button:disabled{opacity:.45;cursor:not-allowed}
   object-fit:cover;
   object-position:center center;
 }
+
+/* V6.8.2 — show the entire SEC Pick'em banner with no cropping */
+.hero-wrap{
+  height:auto !important;
+  max-height:none !important;
+  aspect-ratio:auto !important;
+  overflow:visible !important;
+  background:#050505 !important;
+}
+.hero-image{
+  display:block !important;
+  width:100% !important;
+  height:auto !important;
+  max-height:none !important;
+  aspect-ratio:auto !important;
+  object-fit:contain !important;
+  object-position:center center !important;
+}
+@media(max-width:1050px){
+  .hero-wrap{height:auto !important;max-height:none !important;}
+}
+@media(max-width:760px){
+  .hero-wrap{height:auto !important;max-height:none !important;}
+  .hero-image{height:auto !important;object-position:center center !important;}
+}
+
+
+/* V6.9.0 — safer commissioner card builder */
+.slate-toolbar-status{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.slate-filterbar{display:grid;grid-template-columns:auto minmax(210px,1fr) auto auto;gap:8px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--soft-rule);background:#f3ecdf;position:sticky;top:35px;z-index:2}
+.slate-view-tabs{display:flex;gap:0}.slate-view-tabs button{border-radius:0;margin:0;background:#fff;color:var(--ink)}.slate-view-tabs button.active{background:var(--ink);color:#fff}
+.slate-filterbar input{margin:0;background:#fff}
+.slate-matchup .line-missing{color:#b51f27;font-weight:900}.slate-matchup .line-found{color:#7e5c18}
+.recommended-tag{display:inline-block;margin-top:5px;padding:2px 5px;background:#d6a62e;color:#111;font:900 8px Arial,sans-serif;letter-spacing:.08em;font-style:normal}
+.slate-game-row.needs-line{background:#fff1ee!important;box-shadow:inset 5px 0 0 #b51f27}
+.slate-game-row input.spread-required{border:2px solid #b51f27!important;background:#fff7f5!important;color:#8c1118}
+.slate-game-row input.spread-required::placeholder{color:#b51f27;opacity:1;font-weight:900}
+.sticky-builder-actions{position:sticky;bottom:0;z-index:8;background:#f8f2e6;border-top:2px solid var(--ink);box-shadow:0 -6px 16px rgba(0,0,0,.08);align-items:center}
+.slate-ready-state{margin-right:auto;font:900 10px Arial,sans-serif;letter-spacing:.08em;color:var(--muted)}
+.slate-review-panel{border-top:3px double var(--ink);background:#fffdf8;padding:16px 20px}
+.review-card-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;border-bottom:1px solid var(--ink);padding-bottom:12px;margin-bottom:8px}.review-card-head h4{margin:2px 0 5px;font-size:26px;text-transform:uppercase}.review-card-head p{margin:0;color:var(--muted)}
+.review-card-list{display:grid;grid-template-columns:1fr 1fr;gap:0 18px}.review-card-row{display:grid;grid-template-columns:42px 1fr;gap:8px;padding:9px 0;border-bottom:1px solid var(--soft-rule)}.review-card-row.review-tiebreak{background:#fff4d5}.review-number{font:900 18px Arial,sans-serif;color:var(--gold-dark)}.review-card-row strong,.review-card-row small{display:block}.review-card-row small{color:var(--muted);margin-top:2px}
+@media(max-width:950px){.slate-filterbar{grid-template-columns:1fr 1fr}.slate-view-tabs{grid-column:1/-1}.review-card-list{grid-template-columns:1fr}.sticky-builder-actions{position:static}.slate-ready-state{width:100%}}
+@media(max-width:620px){.slate-filterbar{grid-template-columns:1fr}.slate-view-tabs{grid-column:1}.slate-view-tabs button{flex:1}.slate-toolbar-status{gap:7px;flex-direction:column;align-items:flex-end}.review-card-head{flex-direction:column}}
+
+
+/* V7.0.0 — season experience */
+.season-hub-card,.season-history-card,.player-profile-panel{max-width:none}
+.season-hub-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:14px}
+.season-hub-head h2,.player-profile-head h2{margin:2px 0 4px;text-transform:uppercase}
+.weekly-champion-banner{
+  border:3px double var(--ink);
+  background:linear-gradient(135deg,#17130b 0%,#0e0d0a 62%,#2b2110 100%);
+  color:#fff7df;
+  padding:18px 22px;
+  margin:0 0 14px;
+  text-align:center;
+  box-shadow:inset 0 0 0 1px #c99a36;
+}
+.weekly-champion-kicker{
+  font:900 10px/1.2 Arial,sans-serif;
+  letter-spacing:.18em;
+  text-transform:uppercase;
+  color:#d6a62e;
+  margin-bottom:6px;
+}
+.weekly-champion-name{
+  font:900 30px/1.05 Arial,sans-serif;
+  text-transform:uppercase;
+}
+.weekly-champion-detail{
+  margin-top:7px;
+  color:#e8dcc2;
+  font:700 12px/1.4 Arial,sans-serif;
+  letter-spacing:.02em;
+}
+.rank-move{display:inline-flex;min-width:34px;justify-content:center;font:900 11px Arial,sans-serif}
+.rank-move.up{color:#237a48}
+.rank-move.down{color:#b51f27}
+.rank-move.even{color:var(--muted)}
+.rank-move.new{color:#8a6419;font-size:9px;letter-spacing:.06em}
+.player-link{
+  appearance:none;
+  background:transparent!important;
+  border:0!important;
+  color:var(--ink)!important;
+  padding:0!important;
+  margin:0!important;
+  font:900 13px Arial,sans-serif!important;
+  text-decoration:underline;
+  text-underline-offset:3px;
+  cursor:pointer;
+  text-align:left;
+}
+.player-link:hover{color:var(--red)!important}
+.standings-rank{font-weight:900}
+.season-history-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.week-history-card{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:5px;
+  min-height:132px;
+  padding:14px 16px;
+  background:#fffdf8;
+  color:var(--ink);
+  border:1px solid var(--ink);
+  border-radius:0;
+  text-align:left;
+}
+.week-history-card:hover{background:#f5ecdb}
+.week-history-label{
+  color:#8a6419;
+  font:900 10px Arial,sans-serif;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+}
+.week-history-card strong{font:900 17px/1.2 Arial,sans-serif}
+.week-history-card span:not(.week-history-label){color:var(--muted);font:700 11px Arial,sans-serif}
+.week-history-card em{margin-top:auto;color:var(--red);font:900 10px Arial,sans-serif;text-transform:uppercase;font-style:normal;letter-spacing:.05em}
+.season-history-detail{margin-top:16px}
+.week-history-detail-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;border-top:3px double var(--ink);padding-top:14px;margin-bottom:10px}
+.week-history-detail-head h3{margin:2px 0 0;font-size:28px;text-transform:uppercase}
+.history-tiebreak-final{text-align:right}
+.history-tiebreak-final span{display:block;color:var(--muted);font:900 9px Arial,sans-serif;text-transform:uppercase;letter-spacing:.1em}
+.history-tiebreak-final strong{font:900 13px Arial,sans-serif}
+.history-winner-row{background:#fff3cf}
+.player-profile-panel{border-top:6px solid var(--gold)}
+.player-profile-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
+.player-profile-stats{display:grid;grid-template-columns:repeat(6,1fr);border:1px solid var(--ink);margin:12px 0 16px}
+.player-profile-stats>div{padding:12px;border-right:1px solid var(--ink);text-align:center}
+.player-profile-stats>div:last-child{border-right:0}
+.player-profile-stats span{display:block;color:var(--muted);font:900 9px Arial,sans-serif;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px}
+.player-profile-stats strong{font:900 20px Arial,sans-serif}
+.history-standings-table,.player-history-table{min-width:700px}
+.history-standings-table th,.player-history-table th{white-space:nowrap}
+
+@media(max-width:950px){
+  .season-history-grid{grid-template-columns:1fr 1fr}
+  .player-profile-stats{grid-template-columns:repeat(3,1fr)}
+  .player-profile-stats>div:nth-child(3){border-right:0}
+  .player-profile-stats>div:nth-child(-n+3){border-bottom:1px solid var(--ink)}
+}
+@media(max-width:620px){
+  .weekly-champion-name{font-size:22px}
+  .season-history-grid{grid-template-columns:1fr}
+  .week-history-detail-head,.player-profile-head{flex-direction:column;align-items:flex-start}
+  .history-tiebreak-final{text-align:left}
+  .player-profile-stats{grid-template-columns:1fr 1fr}
+  .player-profile-stats>div{border-right:1px solid var(--ink)!important;border-bottom:1px solid var(--ink)}
+  .player-profile-stats>div:nth-child(2n){border-right:0!important}
+  .player-profile-stats>div:nth-last-child(-n+2){border-bottom:0}
+}

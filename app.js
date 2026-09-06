@@ -21,7 +21,7 @@ const baseGames=[["#13 Alabama", "East Carolina", -28.5, 2], ["#7 Miami", "Stanf
 
 let user=null,profile=null,picks={},submittedAt=null,weekData=null,currentWeekId="week-1",availableWeeks=[],trackingEntries=[];
 let loginIntent=null;
-let scoreFeedLastUpdated=null,scoreFeedError="",scoreRefreshTimer=null,importedSlateCandidates=[];
+let scoreFeedLastUpdated=null,scoreFeedError="",scoreRefreshTimer=null,importedSlateCandidates=[],slateView="recommended",slateSearch="",slateReviewSignature="",seasonDataCache=null;
 const ESPN_SCOREBOARD="https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard";
 const scoreFeedCache=new Map();
 const $=x=>document.getElementById(x);
@@ -124,7 +124,8 @@ function updateWeekUI(){
 }
 
 function updateLockUI(){
-  const text=weekData?.lockAt?`Picks lock ${formatCentral(weekData.lockAt)}`:"Pick deadline has not been published yet.";
+  const lockText=weekData?.lockAt?`Picks lock ${formatCentral(weekData.lockAt)}`:"Pick deadline has not been published yet.";
+  const text=weekData?.lineLockedAt?`${lockText} · Lines locked ${formatCentral(weekData.lineLockedAt)}`:lockText;
   $("lockNotice").textContent=text;
   $("myPicksLockNotice").textContent=text;
   $("confirmLock").textContent=weekData?.lockAt?formatCentral(weekData.lockAt):"Not set";
@@ -311,6 +312,34 @@ function lineFavoriteFromOdds(competition,away,home){
   return {favorite,spread,details};
 }
 
+function isMajorNetwork(network){
+  return /^(ABC|CBS|FOX|NBC|ESPN|ESPN2|ESPNU|SECN|SEC Network|FS1)$/i.test(String(network||"").trim());
+}
+
+function suggestedSlatePoints(c){
+  if(Number(c?.rankedCount)>=2) return 3;
+  const spreadNumber=c?.spread===null||c?.spread===""?NaN:Number(c?.spread);
+  const absSpread=Math.abs(spreadNumber);
+  if(Number(c?.rankedCount)===1) return 2;
+  if(isMajorNetwork(c?.network) && (!Number.isFinite(absSpread)||absSpread<=14.5)) return 2;
+  return 1;
+}
+
+function slateRecommendationScore(c){
+  let score=0;
+  if(Number(c?.rankedCount)>=2) score-=1200;
+  else if(Number(c?.rankedCount)===1) score-=650;
+  if(isMajorNetwork(c?.network)) score-=140;
+  if(c?.hasLine) score-=110;
+  const spreadNumber=c?.spread===null||c?.spread===""?NaN:Number(c?.spread);
+  const absSpread=Math.abs(spreadNumber);
+  if(Number.isFinite(absSpread)) score+=Math.min(absSpread,45)*5;
+  else score+=160;
+  const best=Number(c?.bestRank);
+  if(Number.isFinite(best)&&best<99) score+=best;
+  return score;
+}
+
 function eventToSlateCandidate(event){
   const competition=event?.competitions?.[0];
   const competitors=competition?.competitors||[];
@@ -326,11 +355,14 @@ function eventToSlateCandidate(event){
   const awayRank=Number(away?.curatedRank?.current),homeRank=Number(home?.curatedRank?.current);
   const bestRank=Math.min(Number.isFinite(awayRank)&&awayRank<=25?awayRank:99,Number.isFinite(homeRank)&&homeRank<=25?homeRank:99);
   const rankedCount=[awayRank,homeRank].filter(r=>Number.isFinite(r)&&r<=25).length;
-  return {
+  const candidate={
     id:`espn-${event.id}`,feedEventId:String(event.id),away:awayName,home:homeName,teams:[awayName,homeName],fav:favorite,dog,spread:line.spread,points:1,
     date:event.date||competition?.date||"",network:(competition?.broadcasts?.[0]?.names||[])[0]||"",venue:competition?.venue?.fullName||"",lineDetails:line.details,hasLine:!!line.favorite&&line.spread!==null,
-    importance:(rankedCount>=2?0:rankedCount===1?100:1000)+bestRank
+    rankedCount,bestRank
   };
+  candidate.points=suggestedSlatePoints(candidate);
+  candidate.recommendationScore=slateRecommendationScore(candidate);
+  return candidate;
 }
 
 function slateTimeLabel(value){
@@ -340,33 +372,139 @@ function slateTimeLabel(value){
   return new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"}).format(d);
 }
 
-function selectedSlateRows(){
-  return [...document.querySelectorAll(".slate-game-row")].filter(row=>row.querySelector('[data-slate-select]')?.checked);
+function syncSlateStateFromDom(){
+  document.querySelectorAll(".slate-game-row").forEach(row=>{
+    const c=importedSlateCandidates.find(x=>x.id===row.dataset.candidateId);
+    if(!c) return;
+    const select=row.querySelector('[data-slate-select]');
+    if(select) c.selected=select.checked;
+    const fav=row.querySelector('[data-slate-favorite]');
+    if(fav) c.fav=fav.value;
+    const spread=row.querySelector('[data-slate-spread]');
+    if(spread) c.spread=spread.value===""?null:Number(spread.value);
+    const points=row.querySelector('[data-slate-points]');
+    if(points) c.points=Number(points.value)||1;
+    const tb=row.querySelector('[data-slate-tiebreak]');
+    if(tb) c.tiebreak=tb.checked;
+  });
+}
+
+function selectedSlateCandidates(){
+  syncSlateStateFromDom();
+  return importedSlateCandidates.filter(c=>c.selected);
+}
+
+function slateLineConfirmed(c){
+  return !!c?.fav && c?.teams?.includes(c.fav) && Number.isFinite(Number(c?.spread)) && Number(c.spread)!==0;
+}
+
+function currentSlateSignature(){
+  return JSON.stringify(selectedSlateCandidates().map(c=>[c.id,c.fav,Number(c.spread),Number(c.points)||1,!!c.tiebreak]));
+}
+
+function invalidateSlateReview(){
+  slateReviewSignature="";
+  const panel=$("slateReviewPanel");
+  if(panel) panel.hidden=true;
+}
+
+function applySlateFilters(){
+  const term=normalizeTeamName(slateSearch);
+  document.querySelectorAll(".slate-game-row").forEach(row=>{
+    const c=importedSlateCandidates.find(x=>x.id===row.dataset.candidateId);
+    if(!c) return;
+    const viewOk=slateView==="all"||!!c.recommended;
+    const searchText=normalizeTeamName(`${c.away} ${c.home} ${c.network||""}`);
+    row.hidden=!(viewOk && (!term||searchText.includes(term)));
+  });
+  document.querySelectorAll('[data-slate-view]').forEach(b=>b.classList.toggle("active",b.dataset.slateView===slateView));
 }
 
 function updateSlateSelectionUI(){
-  const selected=selectedSlateRows().length,wanted=Math.max(1,Number($("importGameCount")?.value)||20);
-  if($("slateSelectedCount")) $("slateSelectedCount").textContent=`${selected} selected · ${wanted} wanted`;
-  if($("saveImportedSlate")) $("saveImportedSlate").disabled=!importedSlateCandidates.length||selected!==wanted;
+  syncSlateStateFromDom();
+  const selected=importedSlateCandidates.filter(c=>c.selected);
+  const wanted=Math.max(1,Number($("importGameCount")?.value)||20);
+  const confirmed=selected.filter(slateLineConfirmed).length;
+  if($("slateSelectedCount")) $("slateSelectedCount").textContent=`${selected.length} selected · ${wanted} wanted`;
+  if($("slateConfirmedCount")) $("slateConfirmedCount").textContent=`${confirmed} of ${wanted} spreads confirmed`;
+  document.querySelectorAll(".slate-game-row").forEach(row=>{
+    const c=importedSlateCandidates.find(x=>x.id===row.dataset.candidateId);
+    const input=row.querySelector('[data-slate-spread]');
+    if(!c||!input) return;
+    const needs=!!c.selected&&!slateLineConfirmed(c);
+    input.classList.toggle("spread-required",needs);
+    row.classList.toggle("needs-line",needs);
+  });
+  const valid=!!importedSlateCandidates.length&&selected.length===wanted&&confirmed===wanted&&selected.some(c=>c.tiebreak);
+  const reviewed=valid&&slateReviewSignature&&slateReviewSignature===currentSlateSignature();
+  if($("reviewImportedSlate")) $("reviewImportedSlate").disabled=!valid;
+  if($("saveImportedSlate")) $("saveImportedSlate").disabled=!reviewed;
+  if($("slateReadyState")) $("slateReadyState").textContent=reviewed?"REVIEWED · READY TO SAVE":valid?"READY FOR REVIEW":"FINISH CARD SETUP";
 }
 
-function renderSlatePreview(candidates){
+function selectRecommendedSlate(){
+  syncSlateStateFromDom();
+  const wanted=Math.max(1,Number($("importGameCount")?.value)||20);
+  importedSlateCandidates.forEach((c,i)=>{
+    c.recommended=i<wanted;
+    c.selected=i<wanted;
+    c.points=suggestedSlatePoints(c);
+    c.tiebreak=false;
+  });
+  const first=importedSlateCandidates.find(c=>c.selected);
+  if(first) first.tiebreak=true;
+  invalidateSlateReview();
+  renderSlatePreview();
+}
+
+function clearSlateSelections(){
+  syncSlateStateFromDom();
+  importedSlateCandidates.forEach(c=>{c.selected=false;c.tiebreak=false;});
+  invalidateSlateReview();
+  renderSlatePreview();
+}
+
+function renderSlatePreview(candidates=null){
   const host=$("importSlatePreview");
   if(!host) return;
   const wanted=Math.max(1,Number($("importGameCount")?.value)||20);
-  if(!candidates.length){host.innerHTML='<p class="helper">No FBS games were returned for that week.</p>';updateSlateSelectionUI();return;}
-  const sorted=[...candidates].sort((a,b)=>a.importance-b.importance||String(a.date).localeCompare(String(b.date))||a.away.localeCompare(b.away));
-  importedSlateCandidates=sorted;
-  host.innerHTML=`<div class="slate-preview-toolbar"><strong>${sorted.length} FBS games found</strong><span id="slateSelectedCount">0 selected · ${wanted} wanted</span></div><div class="slate-preview-list">${sorted.map((c,i)=>`
-    <div class="slate-game-row" data-candidate-id="${c.id}">
-      <label class="slate-select"><input type="checkbox" data-slate-select ${i<wanted?"checked":""}><span>Use</span></label>
-      <div class="slate-matchup"><strong>${c.away} @ ${c.home}</strong><span>${slateTimeLabel(c.date)}${c.network?` · ${c.network}`:""}</span><small>${c.hasLine?`ESPN line: ${c.lineDetails||`${c.fav} ${c.spread}`}`:"No ESPN spread found — confirm manually"}</small></div>
-      <label><span>Favorite</span><select data-slate-favorite><option value="${c.away}" ${c.fav===c.away?"selected":""}>${c.away}</option><option value="${c.home}" ${c.fav===c.home?"selected":""}>${c.home}</option></select></label>
-      <label><span>Spread</span><input data-slate-spread type="number" step="0.5" value="${c.spread??""}" placeholder="-7.5"></label>
-      <label><span>Pts</span><select data-slate-points><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></label>
-      <label class="slate-tiebreak"><span>Tiebreak</span><input type="radio" name="slateTiebreak" data-slate-tiebreak ${i===0?"checked":""}></label>
-    </div>`).join("")}</div>`;
-  host.querySelectorAll('[data-slate-select]').forEach(el=>el.addEventListener("change",updateSlateSelectionUI));
+  if(Array.isArray(candidates)){
+    importedSlateCandidates=[...candidates].sort((a,b)=>Number(a.recommendationScore)-Number(b.recommendationScore)||String(a.date).localeCompare(String(b.date))||a.away.localeCompare(b.away));
+    importedSlateCandidates.forEach((c,i)=>{c.recommended=i<wanted;c.selected=i<wanted;c.points=suggestedSlatePoints(c);c.tiebreak=i===0;});
+    slateView="recommended";slateSearch="";slateReviewSignature="";
+  }else syncSlateStateFromDom();
+  if(!importedSlateCandidates.length){host.innerHTML='<p class="helper">No games involving FBS teams were returned for that week.</p>';updateSlateSelectionUI();return;}
+  host.innerHTML=`
+    <div class="slate-preview-toolbar">
+      <strong>${importedSlateCandidates.length} games involving FBS teams</strong>
+      <div class="slate-toolbar-status"><span id="slateSelectedCount">0 selected · ${wanted} wanted</span><span id="slateConfirmedCount">0 of ${wanted} spreads confirmed</span></div>
+    </div>
+    <div class="slate-filterbar">
+      <div class="slate-view-tabs"><button type="button" data-slate-view="recommended" class="active">Recommended ${wanted}</button><button type="button" data-slate-view="all">All Games (${importedSlateCandidates.length})</button></div>
+      <input id="slateSearch" type="search" value="${String(slateSearch).replace(/&/g,"&amp;").replace(/\"/g,"&quot;")}" placeholder="Search team or network">
+      <button type="button" id="selectRecommendedSlate">Select Recommended ${wanted}</button>
+      <button type="button" id="clearSlateSelections">Clear Selections</button>
+    </div>
+    <div class="slate-preview-list">${importedSlateCandidates.map((c,i)=>{
+      const valid=slateLineConfirmed(c),missing=!valid;
+      return `<div class="slate-game-row ${c.selected&&missing?"needs-line":""}" data-candidate-id="${c.id}" data-recommended="${c.recommended?"1":"0"}">
+        <label class="slate-select"><input type="checkbox" data-slate-select ${c.selected?"checked":""}><span>Use</span></label>
+        <div class="slate-matchup"><strong>${c.away} @ ${c.home}</strong><span>${slateTimeLabel(c.date)}${c.network?` · ${c.network}`:""}</span><small class="${c.hasLine?"line-found":"line-missing"}">${c.hasLine?`ESPN line: ${c.lineDetails||`${c.fav} ${c.spread}`}`:"NO ESPN SPREAD — REQUIRED BEFORE REVIEW"}</small>${c.recommended?'<em class="recommended-tag">RECOMMENDED</em>':""}</div>
+        <label><span>Favorite</span><select data-slate-favorite><option value="${c.away}" ${c.fav===c.away?"selected":""}>${c.away}</option><option value="${c.home}" ${c.fav===c.home?"selected":""}>${c.home}</option></select></label>
+        <label><span>Spread</span><input data-slate-spread class="${c.selected&&missing?"spread-required":""}" type="number" step="0.5" value="${c.spread!==null&&c.spread!==""&&Number.isFinite(Number(c.spread))?c.spread:""}" placeholder="REQUIRED"></label>
+        <label><span>Pts</span><select data-slate-points><option value="1" ${Number(c.points)===1?"selected":""}>1</option><option value="2" ${Number(c.points)===2?"selected":""}>2</option><option value="3" ${Number(c.points)===3?"selected":""}>3</option></select></label>
+        <label class="slate-tiebreak"><span>Tiebreak</span><input type="radio" name="slateTiebreak" data-slate-tiebreak ${c.tiebreak?"checked":""}></label>
+      </div>`;
+    }).join("")}</div>`;
+  host.querySelectorAll('[data-slate-select],[data-slate-favorite],[data-slate-spread],[data-slate-points],[data-slate-tiebreak]').forEach(el=>{
+    const evt=el.matches('[data-slate-spread]')?"input":"change";
+    el.addEventListener(evt,()=>{invalidateSlateReview();updateSlateSelectionUI();});
+  });
+  host.querySelectorAll('[data-slate-view]').forEach(btn=>btn.onclick=()=>{slateView=btn.dataset.slateView;applySlateFilters();});
+  $("slateSearch").oninput=e=>{slateSearch=e.target.value;applySlateFilters();};
+  $("selectRecommendedSlate").onclick=selectRecommendedSlate;
+  $("clearSlateSelections").onclick=clearSlateSelections;
+  applySlateFilters();
   updateSlateSelectionUI();
 }
 
@@ -374,44 +512,62 @@ async function importEspnSlate(){
   if(profile?.role!=="admin") return;
   const year=Number($("importSeason").value),week=Number($("importWeek").value);
   if(!year||!week){$("importSlateMsg").textContent="Enter a season and week first.";return;}
-  $("importEspnSlate").disabled=true;$("importEspnSlate").textContent="Loading…";$("importSlateMsg").textContent="Loading the FBS slate from ESPN…";
+  $("importEspnSlate").disabled=true;$("importEspnSlate").textContent="Loading…";$("importSlateMsg").textContent="Loading the college football slate from ESPN…";
   try{
     const events=await fetchEspnEventsForWeek({seasonYear:year,weekNumber:week},{force:true});
     const candidates=events.map(eventToSlateCandidate).filter(Boolean);
     renderSlatePreview(candidates);
     const withLines=candidates.filter(c=>c.hasLine).length;
-    $("importSlateMsg").textContent=`Loaded ${candidates.length} FBS games. ESPN supplied a usable spread for ${withLines}; review every selected line before saving.`;
+    $("importSlateMsg").textContent=`Loaded ${candidates.length} games involving FBS teams. ESPN supplied a usable spread for ${withLines}. Missing lines stay blank and must be confirmed before review.`;
   }catch(e){
     importedSlateCandidates=[];renderSlatePreview([]);$("importSlateMsg").textContent=`Unable to load ESPN slate: ${e.message}`;
   }finally{$("importEspnSlate").disabled=false;$("importEspnSlate").textContent="Load ESPN Slate";}
 }
 
+function reviewImportedSlate(){
+  if(profile?.role!=="admin") return;
+  const wanted=Math.max(1,Number($("importGameCount")?.value)||20);
+  const selected=selectedSlateCandidates();
+  const confirmed=selected.filter(slateLineConfirmed).length;
+  if(selected.length!==wanted){$("importSlateMsg").textContent=`Select exactly ${wanted} games before review.`;return;}
+  if(confirmed!==wanted){$("importSlateMsg").textContent=`Confirm all ${wanted} spreads before review. ${confirmed} are ready right now.`;return;}
+  let tb=selected.find(c=>c.tiebreak);
+  if(!tb){$("importSlateMsg").textContent="Choose a tiebreaker game before review.";return;}
+  const panel=$("slateReviewPanel");
+  panel.hidden=false;
+  panel.innerHTML=`<div class="review-card-head"><div><div class="login-kicker gold">FINAL CARD REVIEW</div><h4>Week ${Number($("importWeek").value)} · ${wanted} Games</h4><p>Review the exact card below. Saving stays disabled until this review matches the current selections.</p></div><button type="button" id="closeSlateReview">Close</button></div><div class="review-card-list">${selected.map((c,i)=>{
+    const dog=c.teams.find(t=>t!==c.fav)||"Underdog";
+    return `<div class="review-card-row ${c.tiebreak?"review-tiebreak":""}"><span class="review-number">${String(i+1).padStart(2,"0")}</span><div><strong>${dog} vs ${c.fav}</strong><small>${c.fav} ${-Math.abs(Number(c.spread))} · ${Number(c.points)||1} pt${Number(c.points)!==1?"s":""}${c.tiebreak?" · TIEBREAKER":""}</small></div></div>`;
+  }).join("")}</div>`;
+  $("closeSlateReview").onclick=()=>{panel.hidden=true;};
+  slateReviewSignature=currentSlateSignature();
+  updateSlateSelectionUI();
+  panel.scrollIntoView({behavior:"smooth",block:"start"});
+  $("importSlateMsg").textContent="Card reviewed. Save Selected Games as Draft when ready.";
+}
+
 async function saveImportedSlateDraft(){
   if(profile?.role!=="admin") return;
   const year=Number($("importSeason").value),week=Number($("importWeek").value),wanted=Math.max(1,Number($("importGameCount").value)||20);
-  const rows=selectedSlateRows();
-  if(rows.length!==wanted){$("importSlateMsg").textContent=`Select exactly ${wanted} games before saving.`;return;}
+  const selected=selectedSlateCandidates();
+  if(selected.length!==wanted){$("importSlateMsg").textContent=`Select exactly ${wanted} games before saving.`;return;}
+  if(selected.some(c=>!slateLineConfirmed(c))){$("importSlateMsg").textContent="Every selected game needs a confirmed favorite and non-zero spread before saving.";return;}
+  if(!slateReviewSignature||slateReviewSignature!==currentSlateSignature()){$("importSlateMsg").textContent="Review the final card before saving the draft.";return;}
   const targetId=`week-${week}`;
   const existing=await getDoc(doc(db,"weeks",targetId));
   if(existing.exists()&&existing.data()?.published){$("importSlateMsg").textContent=`Week ${week} is already published. This builder will not overwrite a live card.`;return;}
   const games=[];let tiebreakerGameId="";
-  for(const row of rows){
-    const c=importedSlateCandidates.find(x=>x.id===row.dataset.candidateId);
-    if(!c) continue;
-    const fav=row.querySelector('[data-slate-favorite]').value;
-    const dog=c.teams.find(t=>t!==fav);
-    const rawSpread=Number(row.querySelector('[data-slate-spread]').value);
-    const points=Number(row.querySelector('[data-slate-points]').value)||1;
-    if(!dog||!Number.isFinite(rawSpread)||rawSpread===0){$("importSlateMsg").textContent=`Every selected game needs a confirmed favorite and non-zero spread. Check ${c.away} @ ${c.home}.`;return;}
-    const game={id:c.id,feedEventId:c.feedEventId,fav,dog,spread:-Math.abs(rawSpread),points,date:c.date||null,network:c.network||""};
+  for(const c of selected){
+    const fav=c.fav,dog=c.teams.find(t=>t!==fav),rawSpread=Number(c.spread),points=Number(c.points)||1;
+    const game={id:c.id,feedEventId:c.feedEventId,fav,dog,spread:-Math.abs(rawSpread),points,date:c.date||null,network:c.network||"",lineSource:c.hasLine?"ESPN":"Commissioner",lineConfirmed:true};
     games.push(game);
-    if(row.querySelector('[data-slate-tiebreak]')?.checked) tiebreakerGameId=game.id;
+    if(c.tiebreak) tiebreakerGameId=game.id;
   }
-  if(!tiebreakerGameId) tiebreakerGameId=games[0]?.id||"";
+  if(!tiebreakerGameId){$("importSlateMsg").textContent="Choose a tiebreaker game before saving.";return;}
   const existingData=existing.exists()?existing.data():{};
-  await setDoc(doc(db,"weeks",targetId),{label:`Week ${week}`,weekNumber:week,seasonYear:year,isTest:false,published:false,games,tiebreakerGameId,importedFrom:"ESPN",importedAt:serverTimestamp(),createdAt:existingData.createdAt||serverTimestamp()},{merge:true});
+  await setDoc(doc(db,"weeks",targetId),{label:`Week ${week}`,weekNumber:week,seasonYear:year,isTest:false,published:false,games,tiebreakerGameId,importedFrom:"ESPN",importedAt:serverTimestamp(),cardReviewed:true,cardReviewedAt:serverTimestamp(),createdAt:existingData.createdAt||serverTimestamp()},{merge:true});
   currentWeekId=targetId;
-  $("importSlateMsg").textContent=`Week ${week} draft saved with ${games.length} games. Set the lock date/time, review the Picks card, then publish.`;
+  $("importSlateMsg").textContent=`Week ${week} draft saved with ${games.length} games. Set the lock date/time, then publish when ready.`;
   await loadWeeks();await switchWeek(targetId);setTab("admin");
 }
 
@@ -561,12 +717,102 @@ function pickPopularityForGame(g,entries){
   return {favPct,dogPct:100-favPct,total:valid.length};
 }
 
+
+function weekIsFinal(gs){
+  return Array.isArray(gs) && gs.length>0 && gs.every(isGameComplete);
+}
+
+function finalScoresForGame(g){
+  if(!g) return null;
+  const dog=Number(g.liveDogScore), fav=Number(g.liveFavScore);
+  if(Number.isFinite(dog)&&Number.isFinite(fav)) return {teamA:dog,teamB:fav};
+  const text=String(g.final||g.finalScore||"").trim();
+  const nums=text.match(/\d+/g)?.map(Number)||[];
+  if(nums.length>=2) return {teamA:nums[0],teamB:nums[1]};
+  return null;
+}
+
+function entryTiebreakMetrics(entry,w){
+  const gs=Array.isArray(w?.games)?w.games:[];
+  const tb=gs.find(g=>g.id===w?.tiebreakerGameId)||gs[0];
+  const actual=finalScoresForGame(tb);
+  if(!tb||!actual) return {available:false,error:null,totalError:null,predicted:null,actual:null};
+  const a=Number(entry?.tiebreak?.teamA??entry?.tiebreak?.clemson);
+  const b=Number(entry?.tiebreak?.teamB??entry?.tiebreak?.lsu);
+  if(!Number.isFinite(a)||!Number.isFinite(b)) return {available:false,error:null,totalError:null,predicted:null,actual};
+  return {
+    available:true,
+    error:Math.abs(a-actual.teamA)+Math.abs(b-actual.teamB),
+    totalError:Math.abs((a+b)-(actual.teamA+actual.teamB)),
+    predicted:{teamA:a,teamB:b},
+    actual
+  };
+}
+
+function rankWeeklyEntries(entries,w){
+  const gs=Array.isArray(w?.games)?w.games:[];
+  const final=weekIsFinal(gs);
+  const ranked=(entries||[]).map(e=>({...e,_grade:entryScore(e,gs),_tb:entryTiebreakMetrics(e,w)}));
+  ranked.sort((a,b)=>{
+    if(b._grade.score!==a._grade.score) return b._grade.score-a._grade.score;
+    if(!final) return b._grade.max-a._grade.max || String(a.name||"").localeCompare(String(b.name||""));
+    if(a._tb.available&&b._tb.available){
+      if(a._tb.error!==b._tb.error) return a._tb.error-b._tb.error;
+      if(a._tb.totalError!==b._tb.totalError) return a._tb.totalError-b._tb.totalError;
+    }else if(a._tb.available!==b._tb.available){
+      return a._tb.available?-1:1;
+    }
+    return String(a.name||"").localeCompare(String(b.name||""));
+  });
+
+  let previousKey=null,previousRank=0;
+  ranked.forEach((e,i)=>{
+    const tieKey=final
+      ? `${e._grade.score}|${e._tb.available?e._tb.error:"na"}|${e._tb.available?e._tb.totalError:"na"}`
+      : `${e._grade.score}|${e._grade.max}`;
+    e._rank=tieKey===previousKey?previousRank:i+1;
+    previousKey=tieKey; previousRank=e._rank;
+  });
+  return ranked;
+}
+
+function weeklyChampionInfo(entries,w){
+  const gs=Array.isArray(w?.games)?w.games:[];
+  if(!weekIsFinal(gs)) return null;
+  const ranked=rankWeeklyEntries(entries,w);
+  if(!ranked.length) return null;
+  const winners=ranked.filter(e=>e._rank===1);
+  const tb=gs.find(g=>g.id===w?.tiebreakerGameId)||gs[0];
+  const actual=finalScoresForGame(tb);
+  return {
+    winners,
+    score:ranked[0]._grade.score,
+    tiebreakGame:tb,
+    actual,
+    ranked
+  };
+}
+
+function formatPct(wins,losses){
+  const decisions=Number(wins||0)+Number(losses||0);
+  return decisions?`${((Number(wins||0)/decisions)*100).toFixed(1)}%`:"—";
+}
+
+function rankMovementLabel(delta,hadPrevious){
+  if(!hadPrevious) return '<span class="rank-move new">NEW</span>';
+  if(delta>0) return `<span class="rank-move up">▲${delta}</span>`;
+  if(delta<0) return `<span class="rank-move down">▼${Math.abs(delta)}</span>`;
+  return '<span class="rank-move even">—</span>';
+}
+
 async function loadTracking({skipScoreRefresh=false}={}){
   if(!skipScoreRefresh && weekData && !weekData.isTest) weekData=await hydrateWeekFromScoreFeed(weekData);
   const gs=gamesForWeek();
   $("trackingTitle").textContent=`${weekData?.label||currentWeekId} Tracking`;
   $("trackingComplete").textContent=`${gs.filter(isGameComplete).length} / ${gs.length}`;
   $("trackingRemaining").textContent=String(gs.filter(g=>!isGameComplete(g)).length);
+  const championHost=$("weeklyChampionBanner");
+  if(championHost){championHost.hidden=true;championHost.innerHTML="";}
 
   if(!isLocked() && profile?.role!=="admin"){
     trackingEntries=[];
@@ -586,31 +832,52 @@ async function loadTracking({skipScoreRefresh=false}={}){
     return;
   }
 
-  const ranked=trackingEntries.map(e=>({...e,_grade:entryScore(e,gs)})).sort((a,b)=>
-    b._grade.score-a._grade.score || b._grade.max-a._grade.max || String(a.name||"").localeCompare(String(b.name||""))
-  );
+  const ranked=rankWeeklyEntries(trackingEntries,{...weekData,games:gs});
   $("trackingEntries").textContent=String(ranked.length);
   const topScore=ranked[0]?._grade.score;
   const leaders=ranked.filter(e=>e._grade.score===topScore).map(e=>e.name||"Player");
   $("trackingLeader").textContent=ranked.length?(leaders.length>2?`${leaders.length}-way tie · ${topScore} pts`:`${leaders.join(" / ")} · ${topScore} pts`):"—";
   $("trackingStatus").textContent=weekData?.isTest?"Test week tracking — does not affect season standings.":scoreFeedStatusText();
 
+  const champion=weeklyChampionInfo(trackingEntries,{...weekData,games:gs});
+  if(champion){
+    const championNames=champion.winners.map(e=>e.name||"Player");
+    $("trackingLeader").textContent=`${championNames.join(" / ")} · ${champion.score} pts`;
+  }
+  if(champion&&championHost){
+    const winnerNames=champion.winners.map(e=>e.name||"Player");
+    const topPointTies=ranked.filter(e=>e._grade.score===champion.score);
+    let detail=`${champion.score} points`;
+    if(topPointTies.length>1){
+      const winner=champion.winners[0];
+      if(champion.winners.length===1 && winner?._tb?.available){
+        detail+=` · tiebreak error ${winner._tb.error}`;
+      }else if(champion.winners.length>1){
+        detail+=` · exact tiebreak remains tied`;
+      }
+    }
+    if(champion.actual&&champion.tiebreakGame){
+      detail+=` · GOTW final ${shortTeam(champion.tiebreakGame.dog)} ${champion.actual.teamA} – ${shortTeam(champion.tiebreakGame.fav)} ${champion.actual.teamB}`;
+    }
+    championHost.innerHTML=`<div class="weekly-champion-kicker">${champion.winners.length>1?"CO-CHAMPIONS":"WEEKLY CHAMPION"}</div><div class="weekly-champion-name">🏆 ${winnerNames.join(" & ")}</div><div class="weekly-champion-detail">${detail}</div>`;
+    championHost.hidden=false;
+  }
+
   if(!ranked.length){
     $("trackingView").innerHTML='<p class="helper" style="padding:16px">No submitted entries yet.</p>';
     return;
   }
 
-  let lastScore=null,lastRank=0;
-  const rows=ranked.map((e,i)=>{
-    const rank=e._grade.score===lastScore?lastRank:i+1;
-    lastScore=e._grade.score; lastRank=rank;
+  const rows=ranked.map(e=>{
+    const rank=e._rank;
     const cells=gs.map(g=>{
       const pick=e.picks?.[g.id]||"—";
       const state=gradePick(g,pick);
       const icon=state==="correct"?"✓":state==="wrong"?"✕":state==="push"?"—":"•";
       return `<td class="tracking-pick ${state}" title="${g.dog} vs ${g.fav}: ${pick}"><span class="tracking-pick-name">${icon} ${shortTeam(pick)}</span><small>${g.points||1} pt${Number(g.points||1)!==1?"s":""}</small></td>`;
     }).join("");
-    return `<tr class="${rank===1?"tracking-leader-row":""}"><td class="sticky-rank">${rank}</td><td class="sticky-player">${e.name||"Player"}</td><td class="score-col sticky-score">${e._grade.score}</td><td class="score-col sticky-max">${e._grade.max}</td>${cells}</tr>`;
+    const tbNote=weekIsFinal(gs)&&e._tb.available?` title="Tiebreak error: ${e._tb.error}"`:"";
+    return `<tr class="${rank===1&&weekIsFinal(gs)?"tracking-leader-row":""}"><td class="sticky-rank">${rank}</td><td class="sticky-player"${tbNote}>${e.name||"Player"}</td><td class="score-col sticky-score">${e._grade.score}</td><td class="score-col sticky-max">${e._grade.max}</td>${cells}</tr>`;
   }).join("");
   const heads=gs.map(g=>{
     const pop=pickPopularityForGame(g,ranked);
@@ -677,33 +944,197 @@ async function saveWeeklyResults(){
   renderGames();renderResults();renderAdminResults();await loadTracking();
 }
 
+
+function htmlEscape(value){
+  return String(value??"")
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#039;");
+}
+
+function standingRowsFromTotals(totals){
+  const rows=[...totals.values()].map(r=>({...r}));
+  rows.sort((a,b)=>b.points-a.points||b.wins-a.wins||a.losses-b.losses||String(a.name||"").localeCompare(String(b.name||"")));
+  let lastKey=null,lastRank=0;
+  rows.forEach((r,i)=>{
+    const key=`${r.points}|${r.wins}|${r.losses}|${r.pushes}`;
+    r.rank=key===lastKey?lastRank:i+1;
+    lastKey=key;lastRank=r.rank;
+  });
+  return rows;
+}
+
+async function buildSeasonData(){
+  const weeksSnap=await getDocs(collection(db,"weeks"));
+  const rawWeeks=weeksSnap.docs.map(d=>({id:d.id,...d.data()}))
+    .filter(w=>w.published&&!w.isTest)
+    .sort((a,b)=>(a.weekNumber||999)-(b.weekNumber||999));
+
+  const weekRecords=[];
+  for(const rawWeek of rawWeeks){
+    const w=await hydrateWeekFromScoreFeed(rawWeek);
+    const gs=Array.isArray(w.games)?w.games:[];
+    if(!gs.some(isGameComplete)) continue;
+    let entriesSnap;
+    try{entriesSnap=await getDocs(collection(db,"weeks",w.id,"entries"));}catch{continue;}
+    const entries=entriesSnap.docs.map(d=>({id:d.id,...d.data()})).filter(e=>e.submitted!==false);
+    const ranked=rankWeeklyEntries(entries,w);
+    const champion=weeklyChampionInfo(entries,w);
+    weekRecords.push({week:w,entries,ranked,champion,final:weekIsFinal(gs)});
+  }
+
+  const totals=new Map();
+  for(const wr of weekRecords){
+    for(const e of wr.ranked){
+      const uid=e.uid||e.id;
+      const cur=totals.get(uid)||{
+        uid,name:e.name||"Player",email:e.email||"",points:0,wins:0,losses:0,pushes:0,weeks:0,weeklyWins:0,bestWeek:0,weekRows:[]
+      };
+      cur.name=e.name||cur.name;cur.email=e.email||cur.email;
+      cur.points+=e._grade.score;cur.wins+=e._grade.wins;cur.losses+=e._grade.losses;cur.pushes+=e._grade.pushes;cur.weeks++;
+      cur.bestWeek=Math.max(cur.bestWeek,e._grade.score);
+      cur.weekRows.push({
+        weekId:wr.week.id,label:wr.week.label||wr.week.id,weekNumber:wr.week.weekNumber||999,
+        rank:e._rank,score:e._grade.score,wins:e._grade.wins,losses:e._grade.losses,pushes:e._grade.pushes,
+        tiebreak:e._tb,final:wr.final
+      });
+      totals.set(uid,cur);
+    }
+    if(wr.final&&wr.champion){
+      wr.champion.winners.forEach(winner=>{
+        const uid=winner.uid||winner.id;
+        const cur=totals.get(uid);
+        if(cur) cur.weeklyWins++;
+      });
+    }
+  }
+
+  const rows=standingRowsFromTotals(totals);
+  const latest=weekRecords.length?weekRecords[weekRecords.length-1]:null;
+  const previousTotals=new Map();
+  if(latest){
+    for(const wr of weekRecords){
+      if(wr.week.id===latest.week.id) continue;
+      for(const e of wr.ranked){
+        const uid=e.uid||e.id;
+        const cur=previousTotals.get(uid)||{uid,name:e.name||"Player",points:0,wins:0,losses:0,pushes:0};
+        cur.points+=e._grade.score;cur.wins+=e._grade.wins;cur.losses+=e._grade.losses;cur.pushes+=e._grade.pushes;
+        previousTotals.set(uid,cur);
+      }
+    }
+  }
+  const previousRows=standingRowsFromTotals(previousTotals);
+  const previousRankMap=new Map(previousRows.map(r=>[r.uid,r.rank]));
+  rows.forEach(r=>{
+    const prev=previousRankMap.get(r.uid);
+    r.previousRank=prev??null;
+    r.rankDelta=prev==null?null:prev-r.rank;
+  });
+
+  return {rows,weekRecords,latest};
+}
+
+function renderSeasonHistory(data){
+  const host=$("seasonHistory"),detail=$("seasonHistoryDetail");
+  if(!host) return;
+  const completed=data.weekRecords.filter(wr=>wr.final).slice().reverse();
+  if(!completed.length){
+    host.innerHTML='<p class="helper">No completed weeks yet.</p>';
+    if(detail) detail.innerHTML="";
+    return;
+  }
+  host.innerHTML=`<div class="season-history-grid">${completed.map(wr=>{
+    const c=wr.champion;
+    const names=c?c.winners.map(w=>htmlEscape(w.name||"Player")).join(" & "):"—";
+    const tb=c?.winners?.[0]?._tb;
+    const tieText=c&&wr.ranked.filter(e=>e._grade.score===c.score).length>1&&tb?.available?`Tiebreak error ${tb.error}`:"Won on points";
+    return `<button type="button" class="week-history-card" data-week-history="${htmlEscape(wr.week.id)}">
+      <span class="week-history-label">${htmlEscape(wr.week.label||wr.week.id)}</span>
+      <strong>🏆 ${names}</strong>
+      <span>${c?`${c.score} pts · ${tieText}`:"Final"}</span>
+      <em>View final standings →</em>
+    </button>`;
+  }).join("")}</div>`;
+  host.querySelectorAll("[data-week-history]").forEach(btn=>btn.onclick=()=>showWeekHistory(btn.dataset.weekHistory));
+}
+
+function showWeekHistory(weekId){
+  const detail=$("seasonHistoryDetail");
+  const wr=seasonDataCache?.weekRecords?.find(x=>x.week.id===weekId);
+  if(!detail||!wr) return;
+  const tb=wr.week.games?.find(g=>g.id===wr.week.tiebreakerGameId)||wr.week.games?.[0];
+  const actual=finalScoresForGame(tb);
+  detail.innerHTML=`<div class="week-history-detail-head">
+      <div><div class="login-kicker gold">FINAL STANDINGS</div><h3>${htmlEscape(wr.week.label||weekId)}</h3></div>
+      ${actual&&tb?`<div class="history-tiebreak-final"><span>Game of the Week</span><strong>${htmlEscape(shortTeam(tb.dog))} ${actual.teamA} – ${htmlEscape(shortTeam(tb.fav))} ${actual.teamB}</strong></div>`:""}
+    </div>
+    <div class="tracking-table-wrap"><table class="tracking-table history-standings-table">
+      <thead><tr><th>#</th><th>Player</th><th>Points</th><th>ATS</th><th>Tiebreak</th></tr></thead>
+      <tbody>${wr.ranked.map(e=>{
+        const tbText=e._tb.available?`${e._tb.error} error · ${e._tb.predicted.teamA}-${e._tb.predicted.teamB}`:"—";
+        return `<tr class="${e._rank===1?"history-winner-row":""}"><td>${e._rank}</td><td>${htmlEscape(e.name||"Player")}</td><td><strong>${e._grade.score}</strong></td><td>${e._grade.wins}-${e._grade.losses}-${e._grade.pushes}</td><td>${htmlEscape(tbText)}</td></tr>`;
+      }).join("")}</tbody>
+    </table></div>`;
+  detail.scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+
+function showPlayerProfile(uid){
+  const panel=$("playerProfilePanel"),nameHost=$("playerProfileName"),body=$("playerProfileBody");
+  const player=seasonDataCache?.rows?.find(r=>r.uid===uid);
+  if(!panel||!nameHost||!body||!player) return;
+  nameHost.textContent=player.name||"Player";
+  body.innerHTML=`<div class="player-profile-stats">
+      <div><span>Season Rank</span><strong>#${player.rank}</strong></div>
+      <div><span>Total Points</span><strong>${player.points}</strong></div>
+      <div><span>ATS Record</span><strong>${player.wins}-${player.losses}-${player.pushes}</strong></div>
+      <div><span>Win %</span><strong>${formatPct(player.wins,player.losses)}</strong></div>
+      <div><span>Weekly Wins</span><strong>${player.weeklyWins}</strong></div>
+      <div><span>Best Week</span><strong>${player.bestWeek} pts</strong></div>
+    </div>
+    <div class="tracking-table-wrap"><table class="tracking-table player-history-table">
+      <thead><tr><th>Week</th><th>Finish</th><th>Points</th><th>ATS</th><th>Tiebreak</th></tr></thead>
+      <tbody>${player.weekRows.slice().sort((a,b)=>a.weekNumber-b.weekNumber).map(w=>{
+        const tb=w.tiebreak?.available?`${w.tiebreak.error} error`:"—";
+        return `<tr><td>${htmlEscape(w.label)}</td><td>${w.final?`#${w.rank}`:"Live"}</td><td>${w.score}</td><td>${w.wins}-${w.losses}-${w.pushes}</td><td>${htmlEscape(tb)}</td></tr>`;
+      }).join("")}</tbody>
+    </table></div>`;
+  panel.hidden=false;
+  panel.scrollIntoView({behavior:"smooth",block:"start"});
+}
+
 async function renderSeasonLeaderboard(){
   const host=$("seasonLeaderboard");
   if(!host) return;
   host.innerHTML='<p class="helper">Loading standings…</p>';
   try{
-    const weeksSnap=await getDocs(collection(db,"weeks"));
-    const rawRealWeeks=weeksSnap.docs.map(d=>({id:d.id,...d.data()})).filter(w=>w.published && !w.isTest);
-    const realWeeks=[];
-    for(const rawWeek of rawRealWeeks) realWeeks.push(await hydrateWeekFromScoreFeed(rawWeek));
-    const totals=new Map();
-    for(const w of realWeeks){
-      const gs=Array.isArray(w.games)?w.games:[];
-      if(!gs.some(isGameComplete)) continue;
-      let entriesSnap;
-      try{entriesSnap=await getDocs(collection(db,"weeks",w.id,"entries"));}catch{continue;}
-      entriesSnap.docs.forEach(d=>{
-        const e={id:d.id,...d.data()};
-        const grade=entryScore(e,gs);
-        const cur=totals.get(e.uid||d.id)||{name:e.name||"Player",points:0,wins:0,losses:0,pushes:0,weeks:0};
-        cur.name=e.name||cur.name; cur.points+=grade.score; cur.wins+=grade.wins; cur.losses+=grade.losses; cur.pushes+=grade.pushes; cur.weeks++;
-        totals.set(e.uid||d.id,cur);
-      });
+    seasonDataCache=await buildSeasonData();
+    const rows=seasonDataCache.rows;
+    if(!rows.length){
+      host.innerHTML='<p>No graded real weeks yet.</p>';
+      renderSeasonHistory(seasonDataCache);
+      return;
     }
-    const rows=[...totals.values()].sort((a,b)=>b.points-a.points||b.wins-a.wins||a.name.localeCompare(b.name));
-    if(!rows.length){host.innerHTML='<p>No graded real weeks yet.</p>';return;}
-    host.innerHTML=`<div class="tracking-table-wrap"><table class="tracking-table standings-table"><thead><tr><th>#</th><th class="sticky-player">Player</th><th>Points</th><th>ATS</th><th>Weeks</th></tr></thead><tbody>${rows.map((r,i)=>`<tr><td>${i+1}</td><td class="sticky-player">${r.name}</td><td class="score-col">${r.points}</td><td>${r.wins}-${r.losses}-${r.pushes}</td><td>${r.weeks}</td></tr>`).join("")}</tbody></table></div>`;
-  }catch(e){host.innerHTML=`<p class="helper">Unable to load season standings: ${e.message}</p>`;}
+    host.innerHTML=`<div class="tracking-table-wrap"><table class="tracking-table standings-table">
+      <thead><tr><th>#</th><th>Move</th><th class="sticky-player">Player</th><th>Points</th><th>ATS</th><th>Win %</th><th>Weekly Wins</th><th>Best Week</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr>
+        <td class="standings-rank">${r.rank}</td>
+        <td>${rankMovementLabel(r.rankDelta,r.previousRank!=null)}</td>
+        <td class="sticky-player"><button type="button" class="player-link" data-player-profile="${htmlEscape(r.uid)}">${htmlEscape(r.name)}</button></td>
+        <td class="score-col">${r.points}</td>
+        <td>${r.wins}-${r.losses}-${r.pushes}</td>
+        <td>${formatPct(r.wins,r.losses)}</td>
+        <td>${r.weeklyWins}</td>
+        <td>${r.bestWeek}</td>
+      </tr>`).join("")}</tbody>
+    </table></div>`;
+    host.querySelectorAll("[data-player-profile]").forEach(btn=>btn.onclick=()=>showPlayerProfile(btn.dataset.playerProfile));
+    renderSeasonHistory(seasonDataCache);
+  }catch(e){
+    host.innerHTML=`<p class="helper">Unable to load season standings: ${htmlEscape(e.message)}</p>`;
+    if($("seasonHistory")) $("seasonHistory").innerHTML='<p class="helper">Season history could not be loaded.</p>';
+  }
 }
 
 function renderResults(){
@@ -819,6 +1250,7 @@ $("savePicks").onclick=async()=>{
 $("viewMyPicks").onclick=()=>setTab("mypicks");
 $("editPicks").onclick=()=>{if(!isLocked())setTab("picks");};
 $("myPicksEdit").onclick=()=>{if(!isLocked())setTab("picks");};
+if($("closePlayerProfile")) $("closePlayerProfile").onclick=()=>{$("playerProfilePanel").hidden=true;};
 if($("refreshAdminDashboard")) $("refreshAdminDashboard").onclick=async()=>{
   $("refreshAdminDashboard").disabled=true; $("refreshAdminDashboard").textContent="Refreshing…";
   try{await loadCommissionerDashboard();}
@@ -832,16 +1264,21 @@ $("refreshTracking").onclick=async()=>{
 $("saveResults").onclick=()=>saveWeeklyResults().catch(e=>$("resultsAdminMsg").textContent=e.message);
 $("loadWeek1").onclick=()=>seedWeekOne().catch(e=>$("adminMsg").textContent=e.message);
 $("importEspnSlate").onclick=()=>importEspnSlate();
+$("reviewImportedSlate").onclick=()=>reviewImportedSlate();
 $("saveImportedSlate").onclick=()=>saveImportedSlateDraft().catch(e=>$("importSlateMsg").textContent=e.message);
-$("importGameCount").onchange=()=>{if(importedSlateCandidates.length)renderSlatePreview(importedSlateCandidates);};
+$("publishWeekBuilder").onclick=()=>$("publishWeek").click();
+$("importGameCount").onchange=()=>{if(importedSlateCandidates.length)selectRecommendedSlate();};
 
 $("publishWeek").onclick=async()=>{
   if(profile?.role!=="admin")return;
+  const gs=gamesForWeek();
+  if(!gs.length||gs.some(g=>!g?.fav||!g?.dog||!Number.isFinite(Number(g?.spread))||Number(g.spread)===0)){$("adminMsg").textContent="Cannot publish: every game needs a confirmed favorite and non-zero spread.";return;}
+  if(weekData?.importedFrom==="ESPN"&&!weekData?.cardReviewed){$("adminMsg").textContent="Review and save the imported card before publishing.";return;}
   const dateStr=$("lockDate").value,timeStr=$("lockTime").value;
   if(!dateStr||!timeStr){$("adminMsg").textContent="Choose both a lock date and lock time.";return;}
   const lockDate=centralPartsToDate(dateStr,timeStr);
-  await setDoc(doc(db,"weeks",currentWeekId),{label:weekData?.label||"Week 1",weekNumber:weekData?.weekNumber||1,seasonYear:weekData?.seasonYear||weekFeedParams(weekData).year,isTest:!!weekData?.isTest,games:gamesForWeek(),tiebreakerGameId:weekData?.tiebreakerGameId||tiebreakerGame()?.id||null,lockDate:dateStr,lockTime:timeStr,lockTimezone:"America/Chicago",lockAt:Timestamp.fromDate(lockDate),published:true,publishedAt:serverTimestamp()},{merge:true});
-  $("adminMsg").textContent=`${weekData?.label||"Week"} published. Picks lock ${formatCentral(lockDate)}.`;
+  await setDoc(doc(db,"weeks",currentWeekId),{label:weekData?.label||"Week 1",weekNumber:weekData?.weekNumber||1,seasonYear:weekData?.seasonYear||weekFeedParams(weekData).year,isTest:!!weekData?.isTest,games:gs,tiebreakerGameId:weekData?.tiebreakerGameId||tiebreakerGame()?.id||null,lockDate:dateStr,lockTime:timeStr,lockTimezone:"America/Chicago",lockAt:Timestamp.fromDate(lockDate),published:true,publishedAt:serverTimestamp(),linesLocked:true,lineLockedAt:serverTimestamp()},{merge:true});
+  $("adminMsg").textContent=`${weekData?.label||"Week"} published. Picks lock ${formatCentral(lockDate)}. Weekly spreads are now frozen.`;
   await loadWeeks();await switchWeek(currentWeekId);
 };
 
