@@ -110,6 +110,11 @@ function updateWeekUI(){
 
     if($("weekLockTop")) $("weekLockTop").textContent=weekData?.lockAt?`Lock: ${formatCentral(weekData.lockAt)}`:"Lock: Not set";
   if($("weekStatusTop")) $("weekStatusTop").textContent=isLocked()?"PICKS LOCKED":"PICKS OPEN";
+  if($("picksOpenLabel")){
+    $("picksOpenLabel").textContent=isLocked()?"PICKS LOCKED":"PICKS OPEN";
+    $("picksOpenLabel").className=`lock-state ${isLocked()?"locked":"open"}`;
+  }
+  if($("picksLockDisplay")) $("picksLockDisplay").textContent=weekData?.lockAt?formatCentral(weekData.lockAt):"Not set";
   if($("testModeBadge")) $("testModeBadge").hidden=!weekData?.isTest;
   if($("testModeText")) $("testModeText").innerHTML=weekData?.isTest
     ?"This is a test week.<br>It does not affect standings."
@@ -141,19 +146,43 @@ function updateLockUI(){
 
 function updateProgress(){
   const gs=gamesForWeek(), count=gs.filter(g=>picks[g.id]).length;
+  const pct=gs.length?Math.round((count/gs.length)*100):0;
   $("pickProgress").textContent=`${count} of ${gs.length} complete`;
+  if($("pickProgressPercent")) $("pickProgressPercent").textContent=`${pct}%`;
+  if($("pickProgressBar")) $("pickProgressBar").style.width=`${pct}%`;
   if(!isLocked()) $("savePicks").textContent=submittedAt?"Update Picks":"Submit Picks";
 }
 
 function renderGames(){
   const locked=isLocked(), gs=gamesForWeek();
-  $("games").innerHTML=gs.map(g=>`<div class="game">
-    <div class="game-head"><div><b>${g.dog} vs ${g.fav}</b><div class="matchup-spread">${g.fav} ${g.spread}</div></div>
-    <span class="points">${g.points} pt${g.points>1?"s":""}</span></div>
-    <div class="choices">
-      <button class="choice ${picks[g.id]===g.fav?"selected":""}" ${locked?"disabled":""} data-g="${g.id}" data-p="${g.fav}">${g.fav} ${g.spread}</button>
-      <button class="choice ${picks[g.id]===g.dog?"selected":""}" ${locked?"disabled":""} data-g="${g.id}" data-p="${g.dog}">${g.dog} +${Math.abs(g.spread)}</button>
-    </div></div>`).join("");
+  $("games").innerHTML=gs.map((g,i)=>{
+    const favSelected=picks[g.id]===g.fav, dogSelected=picks[g.id]===g.dog;
+    const valueLabel=`${g.points} PT${g.points>1?"S":""}`;
+    return `<article class="game ${g.points>=3?"featured-game":""}">
+      <div class="game-number"><span>GAME</span><strong>${String(i+1).padStart(2,"0")}</strong></div>
+      <div class="game-head">
+        <div class="game-meta">
+          <div class="game-value">${valueLabel}${g.points>=3?' · FEATURED':''}</div>
+          <b>${g.dog} <span class="vs-word">vs</span> ${g.fav}</b>
+          <div class="matchup-spread">LINE: ${g.fav} ${g.spread}</div>
+        </div>
+      </div>
+      <div class="choices">
+        <button class="choice ${favSelected?"selected":""}" ${locked?"disabled":""} data-g="${g.id}" data-p="${g.fav}">
+          <span class="choice-role">FAVORITE</span>
+          <span class="choice-team">${g.fav}</span>
+          <span class="choice-line">${g.spread}</span>
+          ${favSelected?'<span class="choice-picked">✓ PICKED</span>':''}
+        </button>
+        <button class="choice ${dogSelected?"selected":""}" ${locked?"disabled":""} data-g="${g.id}" data-p="${g.dog}">
+          <span class="choice-role">UNDERDOG</span>
+          <span class="choice-team">${g.dog}</span>
+          <span class="choice-line">+${Math.abs(g.spread)}</span>
+          ${dogSelected?'<span class="choice-picked">✓ PICKED</span>':''}
+        </button>
+      </div>
+    </article>`;
+  }).join("");
   if(!locked) document.querySelectorAll(".choice").forEach(b=>b.onclick=()=>{picks[b.dataset.g]=b.dataset.p;renderGames();});
   updateProgress(); updateLockUI();
 }

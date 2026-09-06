@@ -4,29 +4,43 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>College Pick'em</title>
-  <link rel="stylesheet" href="styles.css?v=6.5.1">
+  <link rel="stylesheet" href="styles.css?v=6.6.1">
 </head>
 <body>
 
-<div class="hero-wrap">
-  <img class="hero-image" src="cfb-pickem-banner.png" alt="CFB Pick'em college football artwork">
+<div class="site-topbar">
+  <div class="topbar-inner">
+    <span>COLLEGE FOOTBALL PICK'EM</span>
+    <span>ATS · WEEKLY PICKS · SEASON STANDINGS</span>
+  </div>
 </div>
 
-<header>
-  <div class="brand-row">
-    <h1>College Pick'em</h1>
-    <span class="version-badge">v6.5.1</span>
+<header class="paper-header">
+  <div class="masthead">
+    <div class="masthead-copy">
+      <div class="eyebrow">THE SATURDAY SHEET</div>
+      <div class="brand-row">
+        <h1>College Pick'em</h1>
+        <span class="version-badge">v6.6.1</span>
+      </div>
+      <p class="masthead-deck">Make the picks. Beat the number. Own Saturday.</p>
+    </div>
+    <div class="hero-wrap">
+      <img class="hero-image" src="cfb-pickem-banner.png" alt="CFB Pick'em college football artwork">
+    </div>
+    <div id="authBox"></div>
   </div>
-  <div id="authBox"></div>
 </header>
 
-<nav>
-  <button data-tab="picks" class="active">Picks</button>
-  <button data-tab="mypicks">My Picks</button>
-  <button data-tab="leaderboard">Leaderboard</button>
-  <button data-tab="tracking">Tracking</button>
-  <button data-tab="results">Results</button>
-  <button data-tab="admin" id="adminTab" hidden>Admin</button>
+<nav class="paper-nav">
+  <div class="nav-inner">
+    <button data-tab="picks" class="active">Picks</button>
+    <button data-tab="mypicks">My Picks</button>
+    <button data-tab="leaderboard">Leaderboard</button>
+    <button data-tab="tracking">Tracking</button>
+    <button data-tab="results">Results</button>
+    <button data-tab="admin" id="adminTab" hidden>Admin</button>
+  </div>
 </nav>
 
 <main>
@@ -97,16 +111,31 @@
       </div>
     </div>
     <div id="picks" class="tab active">
-      <div class="games-panel">
-        <div class="section-head">
-          <div>
+      <div class="games-panel picks-paper">
+        <div class="picks-edition-head">
+          <div class="picks-title-copy">
+            <div class="edition-kicker">WEEKLY CARD</div>
             <h2>Week 1 Games</h2>
-            <p id="lockNotice" class="muted"></p>
+            <p class="picks-deck">Pick one side against the spread in every matchup. Higher-value games are marked on the card.</p>
           </div>
-          <span id="pickProgress" class="pill">0 of 20 complete</span>
+          <div class="picks-lock-box">
+            <span class="lock-label">ALL PICKS LOCK</span>
+            <strong id="picksLockDisplay">Not set</strong>
+            <span id="picksOpenLabel" class="lock-state open">PICKS OPEN</span>
+          </div>
         </div>
 
-        <div id="games"></div>
+        <div class="pick-progress-strip">
+          <div class="progress-copy">
+            <span>MAKE PICKS</span>
+            <strong id="pickProgressPercent">0%</strong>
+          </div>
+          <div class="progress-track" aria-hidden="true"><div id="pickProgressBar" class="progress-fill"></div></div>
+          <span id="pickProgress" class="pick-progress-count">0 of 20 complete</span>
+        </div>
+        <p id="lockNotice" class="pick-lock-note muted"></p>
+
+        <div id="games" class="games-list"></div>
 
         <div class="tiebreak-panel">
           <h3>Game of the Week Tiebreaker</h3>
@@ -291,6 +320,6 @@
 </footer>
 
 
-<script type="module" src="app.js?v=6.5.1"></script>
+<script type="module" src="app.js?v=6.6.1"></script>
 </body>
 </html>
