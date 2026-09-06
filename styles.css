@@ -818,7 +818,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
   .danger-entry-btn{width:100%}
 }
 
-/* V7.0.6 — live lock countdown + hardened commissioner access */
+/* V7.0.7 — live lock countdown + hardened commissioner access */
 .lock-countdown-mini{
   display:flex;
   align-items:baseline;
@@ -884,4 +884,4 @@ button:disabled{opacity:.45;cursor:not-allowed}
   .submit-countdown strong{font-size:27px}
 }
 
-/* V7.0.6 */
+/* V7.0.7 */

@@ -1140,9 +1140,28 @@ function findGameImportColumn(headers,g,index){
   for(let i=0;i<headers.length;i++){
     const h=normalizedImportText(headers[i]),hc=h.replace(/\s+/g,"");
     if(new RegExp(`^(g|game)0?${gameNumber}(\\D|$)`).test(hc)) return i;
-    if(favCompact&&dogCompact&&hc.includes(favCompact)&&hc.includes(dogCompact)) best=i;
+    if(h.includes("tiebreak")||h.includes("score prediction")||h.includes("gameday score")) continue;
+    if(favCompact&&dogCompact&&hc.includes(favCompact)&&hc.includes(dogCompact)&&best<0) best=i;
   }
   return best;
+}
+
+const IMPORT_TEAM_ALIASES={
+  "alabama":["ALA","BAMA"],"east carolina":["ECU"],"miami":["MIA"],"stanford":["STAN"],
+  "usc":["USC"],"fresno state":["FRES"],"indiana":["IU"],"north texas":["NT"],
+  "houston":["HOU"],"oregon state":["OSU"],"auburn":["AUB","BARN"],"baylor":["BAY"],
+  "oregon":["ORE"],"boise state":["BOISE"],"penn state":["PSU"],"marshall":["MAR"],
+  "cincinnati":["CIN"],"boston college":["BC"],"arkansas":["ARK"],"north alabama":["UNA"],
+  "mississippi state":["MSST"],"ul monroe":["ULM"],"lsu":["LSU"],"clemson":["CLEM"],
+  "michigan":["UM","MICH"],"western michigan":["WMU"],"florida":["UF"],"florida atlantic":["FAU"],
+  "ucla":["UCLA"],"california":["CAL"],"washington":["WAS","UW"],"washington state":["WSU"],
+  "notre dame":["ND"],"wisconsin":["WIS"],"ole miss":["MISS","OM"],"louisville":["LOU"],
+  "smu":["SMU"],"florida state":["FSU"],"georgia tech":["GT"],"colorado":["COL"]
+};
+
+function importAliasesForTeam(team){
+  const normalized=normalizedImportText(team),aliases=IMPORT_TEAM_ALIASES[normalized]||[];
+  return new Set([compactImportText(team),...aliases.map(compactImportText)]);
 }
 
 function matchImportedPick(value,g){
@@ -1150,11 +1169,42 @@ function matchImportedPick(value,g){
   if(!compact) return null;
   if(["fav","favorite","favourite"].includes(compact)) return g.fav;
   if(["dog","underdog"].includes(compact)) return g.dog;
+  const favAliases=importAliasesForTeam(g.fav),dogAliases=importAliasesForTeam(g.dog);
+  if(favAliases.has(compact)&&!dogAliases.has(compact)) return g.fav;
+  if(dogAliases.has(compact)&&!favAliases.has(compact)) return g.dog;
   const fav=compactImportText(g.fav),dog=compactImportText(g.dog);
   const favHit=fav&&compact.includes(fav),dogHit=dog&&compact.includes(dog);
   if(favHit&&!dogHit) return g.fav;
   if(dogHit&&!favHit) return g.dog;
   return null;
+}
+
+function importEmailLooksValid(value){
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value||"").trim());
+}
+
+function parseCombinedTiebreak(value,tb){
+  const raw=String(value??"").trim();
+  const numbers=(raw.match(/\d+/g)||[]).map(Number).filter(Number.isFinite);
+  if(numbers.length<2) return null;
+  const dogName=normalizedImportText(tb?.dog||"Team A"),favName=normalizedImportText(tb?.fav||"Team B");
+  const escaped=name=>name.replace(/[.*+?^${}()|[\]\\]/g,"\\$&").replace(/\s+/g,"\\s+");
+  const dogRe=escaped(dogName),favRe=escaped(favName);
+  const findNamedScore=re=>{
+    let m=raw.match(new RegExp(`${re}[^0-9]{0,10}(\\d+)`,"i"));
+    if(m) return Number(m[1]);
+    m=raw.match(new RegExp(`(\\d+)[^0-9A-Za-z]{0,10}${re}`,"i"));
+    return m?Number(m[1]):null;
+  };
+  const dogScore=findNamedScore(dogRe),favScore=findNamedScore(favRe);
+  if(Number.isFinite(dogScore)&&Number.isFinite(favScore)) return {teamA:dogScore,teamB:favScore};
+  const normalized=normalizedImportText(raw),dogMention=dogName&&normalized.includes(dogName),favMention=favName&&normalized.includes(favName);
+  if(dogMention&&!favMention) return {teamA:numbers[0],teamB:numbers[1]};
+  if(favMention&&!dogMention) return {teamA:numbers[1],teamB:numbers[0]};
+  // Some Google Form responses use an informal winner label after the score instead of a school name.
+  // For this historical form, the listed favorite is treated as that named winner; otherwise preserve question order.
+  if(!dogMention&&!favMention&&/\d+\s*[-–]\s*\d+\s+[A-Za-z]/.test(raw)) return {teamA:numbers[1],teamB:numbers[0]};
+  return {teamA:numbers[0],teamB:numbers[1]};
 }
 
 function historicalIdHash(value){
@@ -1211,6 +1261,7 @@ async function prepareHistoricalImport(text){
   const nameCol=findImportColumn(headers,(h)=>/\b(name|player|participant|entrant)\b/.test(h)&&!h.includes("team"));
   const emailCol=findImportColumn(headers,(h)=>h.includes("email")||h.includes("e mail"));
   const submittedCol=findImportColumn(headers,(h)=>h.includes("timestamp")||h.includes("submitted")||h.includes("submission time")||h.includes("date submitted"));
+  const seasonPoolCol=findImportColumn(headers,(h)=>h.includes("overall against the spread")||h.includes("season ats")||h.includes("season pool"));
   if(nameCol<0) throw new Error('Could not find a player name column. Name it "Name" or "Player".');
 
   const gameCols=gs.map((g,i)=>findGameImportColumn(headers,g,i));
@@ -1219,17 +1270,31 @@ async function prepareHistoricalImport(text){
   const teamAKey=compactImportText(tb?.dog),teamBKey=compactImportText(tb?.fav);
   let tbACol=findImportColumn(headers,(h,hc)=>hc==="tiebreakteama"||hc==="teamascore"||((hc.includes(teamAKey)&&!hc.includes(teamBKey))&&(h.includes("score")||h.includes("tiebreak")||h.includes("prediction"))));
   let tbBCol=findImportColumn(headers,(h,hc)=>hc==="tiebreakteamb"||hc==="teambscore"||((hc.includes(teamBKey)&&!hc.includes(teamAKey))&&(h.includes("score")||h.includes("tiebreak")||h.includes("prediction"))));
+  const tbCombinedCol=findImportColumn(headers,(h,hc)=>
+    (h.includes("tiebreak")||h.includes("score prediction")||h.includes("gameday score"))&&
+    (hc.includes(teamAKey)||hc.includes(teamBKey)||h.includes("tiebreak"))
+  );
+
+  // Google Forms exports can contain an appended transposed summary table beneath the real responses.
+  // When timestamp + email columns are present, keep only rows that look like actual form submissions.
+  const sourceRows=matrix.slice(1).map((cells,i)=>({cells,sourceRow:i+2}));
+  const formRows=(emailCol>=0&&submittedCol>=0)
+    ?sourceRows.filter(({cells})=>importEmailLooksValid(cells[emailCol])&&!!parseImportDate(cells[submittedCol]))
+    :[];
+  const rowsToParse=formRows.length>=2?formRows:sourceRows;
 
   const parsed=[];
-  for(let r=1;r<matrix.length;r++){
-    const cells=matrix[r];
+  for(const source of rowsToParse){
+    const cells=source.cells,r=source.sourceRow;
     const name=String(cells[nameCol]??"").trim().replace(/\s+/g," ");
     if(!name&&cells.every(v=>String(v||"").trim()==="")) continue;
     const email=emailCol>=0?String(cells[emailCol]??"").trim().toLowerCase():"";
     const submittedRaw=submittedCol>=0?String(cells[submittedCol]??"").trim():"";
     const submittedDate=parseImportDate(submittedRaw);
+    const seasonPoolRaw=seasonPoolCol>=0?normalizedImportText(cells[seasonPoolCol]):"";
+    const seasonPool=["yes","y","true","1","joined","participating"].includes(seasonPoolRaw);
     const existingProfile=directoryProfileByEmail(directory,email);
-    const seed=existingProfile?.uid||email||`${name}|${submittedRaw}|${r+1}`;
+    const seed=existingProfile?.uid||email||`${name}|${submittedRaw}|${r}`;
     const entryId=existingProfile?.uid||`hist-${historicalIdHash(seed)}`;
     const rowErrors=[];
     if(!name) rowErrors.push("Missing player name");
@@ -1240,11 +1305,15 @@ async function prepareHistoricalImport(text){
       const pick=matchImportedPick(cells[col],g);
       if(!pick) rowErrors.push(`Game ${i+1} pick not recognized`); else rowPicks[g.id]=pick;
     });
-    const tbA=tbACol>=0?Number(String(cells[tbACol]??"").trim()):NaN;
-    const tbB=tbBCol>=0?Number(String(cells[tbBCol]??"").trim()):NaN;
+    let tbA=tbACol>=0?Number(String(cells[tbACol]??"").trim()):NaN;
+    let tbB=tbBCol>=0?Number(String(cells[tbBCol]??"").trim()):NaN;
+    if((!Number.isFinite(tbA)||!Number.isFinite(tbB))&&tbCombinedCol>=0){
+      const combined=parseCombinedTiebreak(cells[tbCombinedCol],tb);
+      if(combined){tbA=combined.teamA;tbB=combined.teamB;}
+    }
     if(!Number.isFinite(tbA)||tbA<0) rowErrors.push(`${tb?.dog||"Team A"} tiebreak score missing`);
     if(!Number.isFinite(tbB)||tbB<0) rowErrors.push(`${tb?.fav||"Team B"} tiebreak score missing`);
-    parsed.push({sourceRow:r+1,entryId,name,email,submittedRaw,submittedDate,picks:rowPicks,tbA,tbB,existingProfile,willOverwrite:existingIds.has(entryId),errors:rowErrors});
+    parsed.push({sourceRow:r,entryId,name,email,submittedRaw,submittedDate,seasonPool,picks:rowPicks,tbA,tbB,existingProfile,willOverwrite:existingIds.has(entryId),errors:rowErrors});
   }
 
   const idCounts=new Map();
@@ -1252,9 +1321,9 @@ async function prepareHistoricalImport(text){
   parsed.forEach(row=>{if(idCounts.get(row.entryId)>1) row.errors.push("Duplicate player identity in import");});
   const globalErrors=[];
   if(missingGameHeaders.length) globalErrors.push(`Could not map ${missingGameHeaders.length} game column${missingGameHeaders.length===1?"":"s"}: ${missingGameHeaders.map(i=>`G${i+1}`).join(", ")}.`);
-  if(tbACol<0||tbBCol<0) globalErrors.push(`Could not map both Game of the Week score columns (${tb?.dog||"Team A"} / ${tb?.fav||"Team B"}).`);
+  if((tbACol<0||tbBCol<0)&&tbCombinedCol<0) globalErrors.push(`Could not map the Game of the Week score prediction (${tb?.dog||"Team A"} / ${tb?.fav||"Team B"}).`);
   const valid=parsed.filter(row=>!row.errors.length);
-  return {week,headers,rows:parsed,valid,globalErrors,nameCol,emailCol,submittedCol,gameCols,tbACol,tbBCol};
+  return {week,headers,rows:parsed,valid,globalErrors,nameCol,emailCol,submittedCol,seasonPoolCol,gameCols,tbACol,tbBCol,tbCombinedCol,ignoredRowCount:sourceRows.length-rowsToParse.length};
 }
 
 function renderHistoricalImportPreview(state){
@@ -1264,7 +1333,8 @@ function renderHistoricalImportPreview(state){
   const linked=state.rows.filter(r=>r.existingProfile).length;
   const overwrite=state.rows.filter(r=>r.willOverwrite).length;
   const ready=state.rows.length>0&&!invalid&&!state.globalErrors.length;
-  status.textContent=ready?`${state.rows.length} Week 1 submissions are ready to import.`:`Preview found ${invalid+state.globalErrors.length} issue${invalid+state.globalErrors.length===1?"":"s"}. Fix the source data before importing.`;
+  const ignoredNote=state.ignoredRowCount?` Ignored ${state.ignoredRowCount} non-submission row${state.ignoredRowCount===1?"":"s"} from the source file.`:"";
+  status.textContent=(ready?`${state.rows.length} Week 1 submissions are ready to import.`:`Preview found ${invalid+state.globalErrors.length} issue${invalid+state.globalErrors.length===1?"":"s"}. Fix the source data before importing.`)+ignoredNote;
   button.disabled=!ready;
   button.textContent=ready?`Import ${state.rows.length} Week 1 Entries`:`Import Week 1 Entries`;
   const errors=state.globalErrors.length?`<div class="history-import-errors"><strong>Column mapping needs attention:</strong><br>${state.globalErrors.map(htmlEscape).join("<br>")}</div>`:"";
@@ -1316,6 +1386,7 @@ async function importHistoricalWeekOne(){
       submittedAt:row.submittedDate?Timestamp.fromDate(row.submittedDate):serverTimestamp(),
       updatedAt:serverTimestamp(),
       isTest:false,
+      seasonPool:!!row.seasonPool,
       historical:true,
       historicalSource:"Week 1 bulk import",
       importedAt:serverTimestamp()
