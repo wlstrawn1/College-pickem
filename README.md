@@ -1,9 +1,10 @@
-# College Pick'em V7.0.40
+# College Pick'em V7.0.42
 
-Fixed: Week Rank ignored ties.
+Frozen Rank + Player on mobile Weekly Tracking.
 
 Changes:
-- Bug fix: the "Week Rank" stat on the Welcome card was showing raw array position (idx+1) instead of the tie-aware rank that rankWeeklyEntries() already computes elsewhere (same standard skip-tie convention the Weekly Tracking table and Season Leaderboard use, e.g. 18, 19, 19, 19, 22). If several players were tied above you, your displayed rank counted each of them individually instead of reflecting the actual tie. Now uses the same _rank value as everywhere else in the app, so a player tied for 19th shows #19, not their position further down the list.
-- Includes all V7.0.39 functionality (parallelized week/picks loading, loading-state feedback).
+- On phones, the Weekly Tracking matrix previously un-froze every column (Rank, Player, Score, Max) while swiping through the game columns, so once you scrolled right you lost track of whose row you were looking at.
+- Rank and Player are now frozen on the left again on mobile, so they stay visible the whole time you swipe through picks. Score and Max stay non-sticky (and the header row stays non-sticky), so the game columns still get as much width as possible on a narrow screen — this isn't a full revert to the old desktop-style fully-frozen table, just enough to keep the two columns you actually need for orientation.
+- Includes all V7.0.41 functionality (Week Rank sub-text sizing fix).
 
 No Firestore rules changes are required.
