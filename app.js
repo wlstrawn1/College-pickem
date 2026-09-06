@@ -20,6 +20,7 @@ const google=new GoogleAuthProvider();
 const baseGames=[["#13 Alabama", "East Carolina", -28.5, 2], ["#7 Miami", "Stanford", -24.5, 2], ["#14 USC", "Fresno State", -22.5, 2], ["#6 Indiana", "North Texas", -40.5, 2], ["#23 Houston", "Oregon State", -20.5, 2], ["Auburn", "Baylor", -6.5, 1], ["#2 Oregon", "Boise State", -24.5, 2], ["#18 Penn State", "Marshall", -24.5, 2], ["Cincinnati", "Boston College", -7.5, 1], ["Arkansas", "North Alabama", -40.5, 1], ["Mississippi State", "UL Monroe", -28.5, 1], ["#11 LSU", "Clemson", -10.5, 2], ["#16 Michigan", "Western Michigan", -27.5, 2], ["Florida", "Florida Atlantic", -27.5, 1], ["UCLA", "California", -1.5, 1], ["#17 Washington", "Washington State", -23.5, 2], ["#4 Notre Dame", "Wisconsin", -20.5, 2], ["#9 Ole Miss", "#24 Louisville", -6.5, 3], ["#19 SMU", "Florida State", -2.5, 2], ["Georgia Tech", "Colorado", -6.5, 1]].map((g,i)=>({id:"g"+(i+1),fav:g[0],dog:g[1],spread:g[2],points:g[3]}));
 
 let user=null,profile=null,picks={},submittedAt=null,weekData=null,currentWeekId="week-1",availableWeeks=[],trackingEntries=[];
+let loginIntent=null;
 let scoreFeedLastUpdated=null,scoreFeedError="",scoreRefreshTimer=null;
 const ESPN_SCOREBOARD="https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard";
 const scoreFeedCache=new Map();

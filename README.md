@@ -1,4 +1,4 @@
-# College Pick'em V6.5.0 — Commissioner Login + Week 1 Slate
+# College Pick'em V6.5.1 — Admin Login Hotfix
 
 Changes in this build:
 - Adds a dedicated Commissioner/Admin login card.
@@ -40,3 +40,9 @@ Upload/replace:
 - firestore.rules
 
 Firestore rules are unchanged. The commissioner account must already have `role: "admin"` in its user document.
+
+
+## V6.5.1 hotfix
+- Fixes Commissioner/Admin Login not responding.
+- Declares the login intent state before the admin/player sign-in handlers use it.
+- Keeps persistent Firebase login, Week 1 preload, automatic ESPN scoring, Tracking, and manual result overrides from V6.5.0.
