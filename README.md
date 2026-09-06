@@ -1,19 +1,11 @@
-# College Pick'em V7.0.15 — Contextual Week 1 Import Tool
-
-This release keeps the historical Week 1 bulk-import tool out of the normal weekly commissioner workflow.
+# College Pick'em V7.0.16 — Player Week Context Cleanup
 
 Changes:
-- The Week 1 historical import panel is visible only when Week 1 is selected.
-- Selecting Week 2 Draft, Week 3, or any other week hides the historical importer automatically.
-- Returning to Week 1 makes the importer available again for recovery or corrections.
-- All V7.0.14 behavior remains, including future draft weeks and automatic player landing on the newest published real week.
+- Players no longer see a REAL WEEK / OFFICIAL WEEK status card.
+- Players only see published, non-test weeks in the week selector.
+- The third summary card is now useful player information: NOT SUBMITTED, SUBMITTED, LOCKED IN, or NO ENTRY.
+- Commissioners still see week state: DRAFT WEEK, PUBLISHED, or TEST WEEK.
+- Draft weeks remain commissioner-only and published weeks continue to count toward standings.
+- All V7.0.15 features remain.
 
-Upload/replace:
-- index.html
-- styles-v7.0.15.css
-- app-v7.0.15.js
-- college-pickem-newspaper-banner.png
-- cfb-pickem-banner.png
-- sec-pickem-banner-v2.png
-- README.md
-- firestore.rules (unchanged)
+Upload/replace all files in this package. Firestore rules are unchanged.
