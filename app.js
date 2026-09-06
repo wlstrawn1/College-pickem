@@ -21,6 +21,7 @@ const baseGames=[["#13 Alabama", "East Carolina", -28.5, 2], ["#7 Miami", "Stanf
 
 let user=null,profile=null,picks={},submittedAt=null,weekData=null,currentWeekId="week-1",availableWeeks=[],trackingEntries=[];
 let loginIntent=null;
+let lastCountdownLocked=null;
 let scoreFeedLastUpdated=null,scoreFeedError="",scoreRefreshTimer=null,importedSlateCandidates=[],slateView="recommended",slateSearch="",slateReviewSignature="",seasonDataCache=null,playerDirectoryCache=null,historicalImportState=null;
 const ESPN_SCOREBOARD="https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard";
 const scoreFeedCache=new Map();
@@ -57,6 +58,61 @@ function isLocked(){
   if(!weekData?.lockAt) return false;
   const d=weekData.lockAt.toDate?weekData.lockAt.toDate():new Date(weekData.lockAt);
   return Date.now()>=d.getTime();
+}
+
+function lockAtDate(){
+  if(!weekData?.lockAt) return null;
+  const d=weekData.lockAt.toDate?weekData.lockAt.toDate():new Date(weekData.lockAt);
+  return Number.isNaN(d.getTime())?null:d;
+}
+
+function formatLockCountdown(ms){
+  const totalSeconds=Math.max(0,Math.floor(ms/1000));
+  const days=Math.floor(totalSeconds/86400);
+  const hours=Math.floor((totalSeconds%86400)/3600);
+  const minutes=Math.floor((totalSeconds%3600)/60);
+  const seconds=totalSeconds%60;
+  const pad=n=>String(n).padStart(2,"0");
+  return days>0?`${days}d ${pad(hours)}:${pad(minutes)}:${pad(seconds)}`:`${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+}
+
+function updateLockCountdown(){
+  const lock=lockAtDate();
+  const top=$("weekCountdownTop"),wrap=$("weekCountdownWrap"),submit=$("submitCountdown"),submitValue=$("submitCountdownValue"),deadline=$("submitCountdownDeadline");
+  if(!lock){
+    if(top) top.textContent="NOT SET";
+    if(submitValue) submitValue.textContent="NOT SET";
+    if(deadline) deadline.textContent="Commissioner has not published a deadline.";
+    if(wrap) wrap.classList.remove("locked");
+    if(submit) submit.classList.remove("locked");
+    lastCountdownLocked=null;
+    return;
+  }
+
+  const remaining=lock.getTime()-Date.now();
+  const locked=remaining<=0;
+  const value=locked?"LOCKED":formatLockCountdown(remaining);
+  if(top) top.textContent=value;
+  if(submitValue) submitValue.textContent=value;
+  if(deadline) deadline.textContent=locked?`Locked ${formatCentral(lock)}`:`Deadline: ${formatCentral(lock)}`;
+  if(wrap) wrap.classList.toggle("locked",locked);
+  if(submit) submit.classList.toggle("locked",locked);
+  if($("weekStatusTop")){
+    $("weekStatusTop").textContent=locked?"PICKS LOCKED":"PICKS OPEN";
+    $("weekStatusTop").classList.toggle("locked-state",locked);
+  }
+  if($("picksOpenLabel")){
+    $("picksOpenLabel").textContent=locked?"PICKS LOCKED":"PICKS OPEN";
+    $("picksOpenLabel").className=`lock-state ${locked?"locked":"open"}`;
+  }
+
+  // If the deadline passes while the Picks page is already open, immediately
+  // disable the pick buttons and score fields without requiring a refresh.
+  if(lastCountdownLocked===false && locked){
+    renderGames();
+    renderMy();
+  }
+  lastCountdownLocked=locked;
 }
 
 function gamesForWeek(){ return Array.isArray(weekData?.games) && weekData.games.length ? weekData.games : baseGames; }
@@ -111,7 +167,10 @@ function updateWeekUI(){
   $("resultsTitle").textContent=`${label} Results`;
 
     if($("weekLockTop")) $("weekLockTop").textContent=weekData?.lockAt?`Lock: ${formatCentral(weekData.lockAt)}`:"Lock: Not set";
-  if($("weekStatusTop")) $("weekStatusTop").textContent=isLocked()?"PICKS LOCKED":"PICKS OPEN";
+  if($("weekStatusTop")){
+    $("weekStatusTop").textContent=isLocked()?"PICKS LOCKED":"PICKS OPEN";
+    $("weekStatusTop").classList.toggle("locked-state",isLocked());
+  }
   if($("picksOpenLabel")){
     $("picksOpenLabel").textContent=isLocked()?"PICKS LOCKED":"PICKS OPEN";
     $("picksOpenLabel").className=`lock-state ${isLocked()?"locked":"open"}`;
@@ -125,6 +184,7 @@ function updateWeekUI(){
   if($("testModeText")) $("testModeText").innerHTML=weekData?.isTest
     ?"Practice mode only.<br>Does not affect season standings."
     :"Counts toward season standings.<br>Official weekly card.";
+  updateLockCountdown();
 }
 
 function updateLockUI(){
@@ -1611,6 +1671,7 @@ async function loadPicks(){
 
 async function switchWeek(id){
   currentWeekId=id;
+  lastCountdownLocked=null;
   await loadCurrentWeek();
   await loadPicks();
   if(profile?.role==="admin") await loadCommissionerDashboard();
@@ -1636,12 +1697,12 @@ $("emailSignIn").onclick=()=>{loginIntent="player";return signInWithEmailAndPass
 $("adminSignIn").onclick=async()=>{
   loginIntent="admin"; $("adminAuthMsg").textContent="Signing in…";
   try{await signInWithEmailAndPassword(auth,$("adminEmail").value.trim(),$("adminPassword").value);}
-  catch(e){$("adminAuthMsg").textContent=e.message;}
+  catch(e){loginIntent=null;$("adminAuthMsg").textContent=e.message;}
 };
 $("adminGoogle").onclick=async()=>{
   loginIntent="admin"; $("adminAuthMsg").textContent="Signing in…";
   try{await signInWithPopup(auth,google);}
-  catch(e){$("adminAuthMsg").textContent=e.message;}
+  catch(e){loginIntent=null;$("adminAuthMsg").textContent=e.message;}
 };
 $("forgotPassword").onclick=async()=>{
   const email=$("email").value.trim();
@@ -1740,6 +1801,8 @@ $("resetTestWeek").onclick=async()=>{
 
 document.querySelectorAll("nav button[data-tab]").forEach(b=>b.onclick=async()=>{setTab(b.dataset.tab);if(b.dataset.tab==="tracking")await loadTracking();if(b.dataset.tab==="results")await refreshAutomaticScores();if(b.dataset.tab==="leaderboard")await renderSeasonLeaderboard();if(b.dataset.tab==="admin")await loadCommissionerDashboard();});
 
+setInterval(updateLockCountdown,1000);
+
 scoreRefreshTimer=setInterval(async()=>{
   if(!user||!weekData||weekData.isTest) return;
   const active=document.querySelector(".tab.active")?.id;
@@ -1750,17 +1813,35 @@ onAuthStateChanged(auth,async u=>{
   user=u;
   if($("loginChooser")) $("loginChooser").hidden=!!u;
   if(u){
+    // Commissioner login is verified before the normal app/profile UI is loaded.
+    // Clicking the Admin Login button never grants admin access by itself.
+    if(loginIntent==="admin"){
+      try{
+        const adminProfileSnap=await getDoc(doc(db,"users",u.uid));
+        const candidate=adminProfileSnap.exists()?adminProfileSnap.data():null;
+        if(candidate?.role!=="admin"){
+          if($("adminAuthMsg")) $("adminAuthMsg").textContent="This account is not authorized as a commissioner.";
+          loginIntent=null;
+          await signOut(auth);
+          return;
+        }
+      }catch(e){
+        if($("adminAuthMsg")) $("adminAuthMsg").textContent=`Unable to verify commissioner access: ${e.message}`;
+        loginIntent=null;
+        await signOut(auth);
+        return;
+      }
+    }
+
     $("authBox").innerHTML=`<button id="logout">${u.email} · Sign out</button>`;
     $("logout").onclick=()=>signOut(auth);
     await loadProfile();
-    if(loginIntent==="admin" && profile?.role!=="admin"){
-      if($("adminAuthMsg")) $("adminAuthMsg").textContent="That account is not authorized as a commissioner.";
-      await signOut(auth);
-      return;
-    }
+    if(loginIntent==="admin" && $("adminAuthMsg")) $("adminAuthMsg").textContent="";
+    loginIntent=null;
   }else{
     $("authBox").innerHTML="";
     $("profileCard").hidden=true;$("appArea").hidden=true;
     if($("loginChooser")) $("loginChooser").hidden=false;
+    updateLockCountdown();
   }
 });

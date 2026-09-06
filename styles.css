@@ -817,3 +817,71 @@ button:disabled{opacity:.45;cursor:not-allowed}
   .submitted-entry-head,.submitted-entry-row{align-items:flex-start;flex-direction:column}
   .danger-entry-btn{width:100%}
 }
+
+/* V7.0.6 — live lock countdown + hardened commissioner access */
+.lock-countdown-mini{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:10px;
+  margin:7px 0 9px;
+  padding:7px 0;
+  border-top:1px solid var(--soft-rule);
+  border-bottom:1px solid var(--soft-rule);
+}
+.lock-countdown-mini span{
+  font:900 9px Arial,sans-serif;
+  letter-spacing:.12em;
+  color:var(--muted);
+}
+.lock-countdown-mini strong{
+  font:900 20px Arial,sans-serif;
+  letter-spacing:.04em;
+  color:var(--ink);
+  white-space:nowrap;
+}
+.lock-countdown-mini.locked strong{color:var(--red)}
+.status-badge.locked-state{background:var(--red);color:#fff}
+
+.submit-countdown{
+  margin:22px 24px 0;
+  padding:14px 18px;
+  border:2px solid var(--ink);
+  background:#f8f3e9;
+  display:grid;
+  grid-template-columns:auto 1fr;
+  align-items:center;
+  column-gap:18px;
+  row-gap:3px;
+}
+.submit-countdown-label{
+  grid-row:1 / span 2;
+  font:900 10px Arial,sans-serif;
+  letter-spacing:.14em;
+  color:var(--muted);
+}
+.submit-countdown strong{
+  font:900 30px Arial,sans-serif;
+  letter-spacing:.06em;
+  line-height:1;
+}
+.submit-countdown small{
+  font:700 11px Arial,sans-serif;
+  color:var(--muted);
+}
+.submit-countdown.locked{
+  background:var(--ink);
+  color:#fff;
+}
+.submit-countdown.locked .submit-countdown-label,
+.submit-countdown.locked small{color:#d9d2c5}
+.submit-countdown.locked strong{color:#f0ca6a}
+
+@media(max-width:600px){
+  .lock-countdown-mini{align-items:flex-start;flex-direction:column;gap:3px}
+  .submit-countdown{margin:18px 18px 0;grid-template-columns:1fr;gap:5px}
+  .submit-countdown-label{grid-row:auto}
+  .submit-countdown strong{font-size:27px}
+}
+
+/* V7.0.6 */

@@ -1,17 +1,18 @@
-# College Pick'em V7.0.5 — Commissioner Entry Cleanup
+# College Pick'em V7.0.6 — Lock Countdown + Admin Gate
 
-This build adds safe submission cleanup directly inside the Commissioner Entry Check.
+This build adds the live pick-lock countdown and hardens the Commissioner login flow.
 
 Changes:
-- Adds a Submitted Entries list for the currently selected week.
-- Shows player name, email, submission source, and submission time.
-- Adds a red **Delete Entry** button for each submitted entry.
-- Requires a confirmation before deleting.
-- Deleting permanently removes that week's picks and tiebreaker from Firestore.
-- Weekly Tracking, Season Leaderboard, Season History, and commissioner counts refresh after deletion.
-- Historical imported entries can also be deleted from the same screen.
-- Improves the commissioner submitted-player matching so historical entries linked by email count correctly.
-- Keeps all V7.0.4 historical import and V7.0.3 naming changes.
+- Adds a live **PICKS LOCK IN** countdown to the Week Selector card.
+- Adds the same countdown immediately above the Submit Picks button.
+- Countdown updates every second and uses the published Central Time lock timestamp.
+- When the deadline hits, the countdown changes to **LOCKED** automatically.
+- Pick buttons, tiebreaker inputs, and edit controls lock immediately without requiring a page refresh.
+- Picks status changes from **PICKS OPEN** to **PICKS LOCKED** automatically.
+- Commissioner login now verifies the Firestore user role *before* loading the normal app UI.
+- Any account without `role: "admin"` is immediately signed back out and shown **This account is not authorized as a commissioner.**
+- Clicking Commissioner Login never grants permissions; Firestore admin rules remain the real security boundary.
+- Keeps all V7.0.5 commissioner entry cleanup and V7.0.4 historical import features.
 
 Upload/replace:
 - index.html
@@ -20,4 +21,4 @@ Upload/replace:
 - college-pickem-newspaper-banner.png
 - README.md
 
-Firestore rules are unchanged from V7.0.4. Existing admin rules already allow commissioners to delete weekly entries.
+Firestore rules are unchanged from V7.0.5 / V7.0.4.

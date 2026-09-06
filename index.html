@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>College Pick'em</title>
-  <link rel="stylesheet" href="styles.css?v=7.0.5">
+  <link rel="stylesheet" href="styles.css?v=7.0.6">
 </head>
 <body>
 
@@ -21,12 +21,12 @@
       <div class="eyebrow">THE SATURDAY SHEET</div>
       <div class="brand-row">
         <h1>College Pick'em</h1>
-        <span class="version-badge">v7.0.5</span>
+        <span class="version-badge">v7.0.6</span>
       </div>
       <p class="masthead-deck">Make the picks. Beat the number. Own Saturday.</p>
     </div>
     <div class="hero-wrap">
-      <img class="hero-image" src="college-pickem-newspaper-banner.png?v=7.0.5" alt="College Football Pick'em newspaper-style season banner">
+      <img class="hero-image" src="college-pickem-newspaper-banner.png?v=7.0.6" alt="College Football Pick'em newspaper-style season banner">
     </div>
     <div id="authBox"></div>
   </div>
@@ -93,6 +93,10 @@
         <div class="summary-card-title">Week Selector</div>
         <select id="weekSelectTop"></select>
         <div id="weekLockTop" class="summary-card-line">Lock: Not set</div>
+        <div id="weekCountdownWrap" class="lock-countdown-mini">
+          <span>PICKS LOCK IN</span>
+          <strong id="weekCountdownTop">—</strong>
+        </div>
         <div id="weekStatusTop" class="status-badge">PICKS OPEN</div>
       </div>
 
@@ -148,6 +152,11 @@
           </div>
         </div>
 
+        <div id="submitCountdown" class="submit-countdown">
+          <span class="submit-countdown-label">PICKS LOCK IN</span>
+          <strong id="submitCountdownValue">—</strong>
+          <small id="submitCountdownDeadline">Deadline not set</small>
+        </div>
         <button id="savePicks" class="primary submit-btn">Submit Picks</button>
         <p id="saveMsg" class="msg"></p>
       </div>
@@ -432,6 +441,6 @@
 </footer>
 
 
-<script type="module" src="app.js?v=7.0.5"></script>
+<script type="module" src="app.js?v=7.0.6"></script>
 </body>
 </html>
