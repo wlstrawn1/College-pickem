@@ -1,9 +1,13 @@
-# College Pick'em V6.8.0 — Live Tracking + Entry Check
+# College Pick'em V6.8.1 — Banner Cache Fix
 
 This version builds on V6.7.0 and adds the next live-pool improvements.
 
-## New in V6.8.0
-- Tracking now shows ESPN game status directly in each matchup header (scheduled, LIVE, or FINAL).
+## Fixed in V6.8.1
+- Replaced the hero asset reference with a new filename so GitHub Pages/browser caching cannot keep showing the prior banner.
+- The hero now points to the new SEC College Football Pick'em stadium banner supplied for the site.
+
+## Retained from V6.8.0
+- Tracking shows ESPN game status directly in each matchup header (scheduled, LIVE, or FINAL).
 - Live/final scores appear in the Tracking matchup headers when available.
 - Pick popularity appears after lock for every matchup, based on submitted league entries.
 - Rank, Player, Score, and Max columns stay frozen while horizontally scrolling Tracking.
@@ -25,7 +29,7 @@ This version builds on V6.7.0 and adds the next live-pool improvements.
 - index.html
 - styles.css
 - app.js
-- cfb-pickem-banner.png
+- sec-pickem-banner-v2.png
 - README.md
 - firestore.rules
 
