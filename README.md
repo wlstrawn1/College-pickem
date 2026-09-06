@@ -1,12 +1,9 @@
-# College Pick'em V7.0.23
+# College Pick'em V7.0.24
 
-Whole banner + weekly rank/record.
+Version bump only (re-upload build).
 
 Changes:
-- Banner now shows the full image with nothing cropped off (switched `object-fit` from `cover` to `contain`). The banner box itself stays the same small size as v7.0.22 — the image now letterboxes within it (dark bars left/right) instead of having its top/bottom sliced off.
-- The "Welcome" summary card now shows both season-long and current-week stats: Season Rank / Season Points / Season ATS stay as before, and a new section states the current week by name and shows Week Record and Week Rank for that week specifically.
-- Week Rank respects the same privacy rule as Weekly Tracking: before the pick lock, it shows "Unlocks at lock" instead of a number, since ranking requires comparing against other players' still-hidden picks. After lock (or for the commissioner), it shows "#N of M".
-- This card now refreshes every time you switch tabs, switch weeks, or submit picks, so it stays current "as you move between screens."
-- Includes all V7.0.22 functionality.
+- No functional changes from V7.0.23. Bumped the version number and renamed app-*.js / styles-*.css so this uploads as a distinct set of files from what's already on GitHub — useful if a same-named re-upload wasn't taking effect (stale browser/CDN cache, or GitHub Pages not treating an identical filename as a change).
+- Includes all V7.0.23 functionality (full banner shown via object-fit:contain, weekly rank/record on the summary card).
 
 No Firestore rules changes are required.
