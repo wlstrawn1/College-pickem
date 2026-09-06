@@ -21,7 +21,7 @@ const baseGames=[["#13 Alabama", "East Carolina", -28.5, 2], ["#7 Miami", "Stanf
 
 let user=null,profile=null,picks={},submittedAt=null,weekData=null,currentWeekId="week-1",availableWeeks=[],trackingEntries=[];
 let loginIntent=null;
-let scoreFeedLastUpdated=null,scoreFeedError="",scoreRefreshTimer=null,importedSlateCandidates=[],slateView="recommended",slateSearch="",slateReviewSignature="",seasonDataCache=null;
+let scoreFeedLastUpdated=null,scoreFeedError="",scoreRefreshTimer=null,importedSlateCandidates=[],slateView="recommended",slateSearch="",slateReviewSignature="",seasonDataCache=null,playerDirectoryCache=null;
 const ESPN_SCOREBOARD="https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard";
 const scoreFeedCache=new Map();
 const $=x=>document.getElementById(x);
@@ -117,10 +117,14 @@ function updateWeekUI(){
     $("picksOpenLabel").className=`lock-state ${isLocked()?"locked":"open"}`;
   }
   if($("picksLockDisplay")) $("picksLockDisplay").textContent=weekData?.lockAt?formatCentral(weekData.lockAt):"Not set";
-  if($("testModeBadge")) $("testModeBadge").hidden=!weekData?.isTest;
+  if($("testModeBadge")){
+    $("testModeBadge").hidden=false;
+    $("testModeBadge").textContent=weekData?.isTest?"TEST WEEK":"REAL WEEK";
+    $("testModeBadge").className=`test-week-badge ${weekData?.isTest?"":"real-week-badge"}`;
+  }
   if($("testModeText")) $("testModeText").innerHTML=weekData?.isTest
-    ?"This is a test week.<br>It does not affect standings."
-    :"This is a real week.<br>It affects standings.";
+    ?"Practice mode only.<br>Does not affect season standings."
+    :"Counts toward season standings.<br>Official weekly card.";
 }
 
 function updateLockUI(){
@@ -798,7 +802,8 @@ function formatPct(wins,losses){
   return decisions?`${((Number(wins||0)/decisions)*100).toFixed(1)}%`:"—";
 }
 
-function rankMovementLabel(delta,hadPrevious){
+function rankMovementLabel(delta,hadPrevious,hasBaseline=true){
+  if(!hasBaseline) return '<span class="rank-move even">—</span>';
   if(!hadPrevious) return '<span class="rank-move new">NEW</span>';
   if(delta>0) return `<span class="rank-move up">▲${delta}</span>`;
   if(delta<0) return `<span class="rank-move down">▼${Math.abs(delta)}</span>`;
@@ -824,8 +829,15 @@ async function loadTracking({skipScoreRefresh=false}={}){
   }
 
   try{
-    const snap=await getDocs(collection(db,"weeks",currentWeekId,"entries"));
-    trackingEntries=snap.docs.map(d=>({id:d.id,...d.data()})).filter(e=>e.submitted!==false);
+    const [snap,directory]=await Promise.all([
+      getDocs(collection(db,"weeks",currentWeekId,"entries")),
+      getPlayerDirectoryMap()
+    ]);
+    trackingEntries=snap.docs.map(d=>{
+      const entry={id:d.id,...d.data()};
+      const currentProfile=directory.get(entry.uid||entry.id);
+      return {...entry,name:currentProfile?.name||entry.name||"Player"};
+    }).filter(e=>e.submitted!==false);
   }catch(e){
     trackingEntries=[];
     $("trackingView").innerHTML=`<p class="helper">Unable to load tracking: ${e.message}</p>`;
@@ -896,7 +908,10 @@ async function loadCommissionerDashboard(){
       getDocs(collection(db,"users")),
       getDocs(collection(db,"weeks",currentWeekId,"entries"))
     ]);
-    const players=usersSnap.docs.map(d=>({uid:d.id,...d.data()})).filter(p=>p.role==="player");
+    const allUsers=usersSnap.docs.map(d=>({uid:d.id,...d.data()}));
+    playerDirectoryCache=new Map(allUsers.map(p=>[p.uid,p]));
+    const players=allUsers.filter(p=>p.role==="player");
+    renderAdminPlayerDirectory(players);
     const submittedIds=new Set(entriesSnap.docs.filter(d=>d.data().submitted!==false).map(d=>d.id));
     const missing=players.filter(p=>!submittedIds.has(p.uid)).sort((a,b)=>String(a.name||a.email||"").localeCompare(String(b.name||b.email||"")));
     const submitted=players.length-missing.length;
@@ -954,6 +969,73 @@ function htmlEscape(value){
     .replace(/'/g,"&#039;");
 }
 
+async function getPlayerDirectoryMap(force=false){
+  if(playerDirectoryCache&&!force) return playerDirectoryCache;
+  try{
+    const snap=await getDocs(collection(db,"users"));
+    playerDirectoryCache=new Map(snap.docs.map(d=>[d.id,{uid:d.id,...d.data()}]));
+  }catch{
+    playerDirectoryCache=new Map();
+  }
+  return playerDirectoryCache;
+}
+
+function updatePersonalSeasonSummary(data){
+  const row=data?.rows?.find(r=>r.uid===user?.uid);
+  if($("personalRank")) $("personalRank").textContent=row?`#${row.rank}`:"—";
+  if($("personalPoints")) $("personalPoints").textContent=row?String(row.points):"0";
+  if($("personalAts")) $("personalAts").textContent=row?`${row.wins}-${row.losses}-${row.pushes} (${formatPct(row.wins,row.losses)})`:"0-0-0 (—)";
+}
+
+function renderAdminPlayerDirectory(players){
+  const host=$("adminPlayerDirectory"),status=$("adminPlayerDirectoryStatus");
+  if(!host) return;
+  const normalized=new Map();
+  for(const p of players){
+    const key=String(p.name||"").trim().toLowerCase();
+    if(!key) continue;
+    normalized.set(key,(normalized.get(key)||0)+1);
+  }
+  const duplicates=players.filter(p=>normalized.get(String(p.name||"").trim().toLowerCase())>1);
+  if(status){
+    status.textContent=duplicates.length
+      ?`${duplicates.length} player profile${duplicates.length===1?" has":"s have"} a duplicate display name. Edit the names below and save.`
+      :"Display names are unique. Changes here flow through Tracking, Leaderboard, History, and Player Cards.";
+  }
+  if(!players.length){host.innerHTML='<p class="helper">No player profiles found yet.</p>';return;}
+  const ordered=players.slice().sort((a,b)=>String(a.name||a.email||"").localeCompare(String(b.name||b.email||"")));
+  host.innerHTML=ordered.map(p=>{
+    const duplicate=normalized.get(String(p.name||"").trim().toLowerCase())>1;
+    return `<div class="player-directory-row ${duplicate?"duplicate-name":""}">
+      <div class="player-directory-identity"><strong>${htmlEscape(p.email||"No email")}</strong><span>${duplicate?'<b class="duplicate-name-badge">DUPLICATE NAME</b>':''}</span></div>
+      <input type="text" data-player-name-input="${htmlEscape(p.uid)}" value="${htmlEscape(p.name||"")}" placeholder="First and last name">
+      <button type="button" data-save-player-name="${htmlEscape(p.uid)}">Save Name</button>
+    </div>`;
+  }).join("");
+  host.querySelectorAll("[data-save-player-name]").forEach(btn=>btn.onclick=()=>savePlayerDisplayName(btn.dataset.savePlayerName));
+}
+
+async function savePlayerDisplayName(uid){
+  if(profile?.role!=="admin") return;
+  const input=$("adminPlayerDirectory")?.querySelector(`[data-player-name-input="${uid}"]`);
+  const name=input?.value.trim().replace(/\s+/g," ")||"";
+  if(name.split(" ").filter(Boolean).length<2){
+    if($("adminPlayerDirectoryStatus")) $("adminPlayerDirectoryStatus").textContent="Enter a first and last name before saving.";
+    input?.focus();
+    return;
+  }
+  try{
+    await setDoc(doc(db,"users",uid),{name,profileUpdatedAt:serverTimestamp()},{merge:true});
+    playerDirectoryCache=null;seasonDataCache=null;
+    if($("adminPlayerDirectoryStatus")) $("adminPlayerDirectoryStatus").textContent=`Saved ${name}. Refreshing league displays…`;
+    await loadCommissionerDashboard();
+    await renderSeasonLeaderboard();
+    await loadTracking({skipScoreRefresh:true});
+  }catch(e){
+    if($("adminPlayerDirectoryStatus")) $("adminPlayerDirectoryStatus").textContent=`Unable to save name: ${e.message}`;
+  }
+}
+
 function standingRowsFromTotals(totals){
   const rows=[...totals.values()].map(r=>({...r}));
   rows.sort((a,b)=>b.points-a.points||b.wins-a.wins||a.losses-b.losses||String(a.name||"").localeCompare(String(b.name||"")));
@@ -972,6 +1054,7 @@ async function buildSeasonData(){
     .filter(w=>w.published&&!w.isTest)
     .sort((a,b)=>(a.weekNumber||999)-(b.weekNumber||999));
 
+  const directory=await getPlayerDirectoryMap();
   const weekRecords=[];
   for(const rawWeek of rawWeeks){
     const w=await hydrateWeekFromScoreFeed(rawWeek);
@@ -979,7 +1062,11 @@ async function buildSeasonData(){
     if(!gs.some(isGameComplete)) continue;
     let entriesSnap;
     try{entriesSnap=await getDocs(collection(db,"weeks",w.id,"entries"));}catch{continue;}
-    const entries=entriesSnap.docs.map(d=>({id:d.id,...d.data()})).filter(e=>e.submitted!==false);
+    const entries=entriesSnap.docs.map(d=>{
+      const entry={id:d.id,...d.data()};
+      const currentProfile=directory.get(entry.uid||entry.id);
+      return {...entry,name:currentProfile?.name||entry.name||"Player",email:currentProfile?.email||entry.email||""};
+    }).filter(e=>e.submitted!==false);
     const ranked=rankWeeklyEntries(entries,w);
     const champion=weeklyChampionInfo(entries,w);
     weekRecords.push({week:w,entries,ranked,champion,final:weekIsFinal(gs)});
@@ -989,10 +1076,11 @@ async function buildSeasonData(){
   for(const wr of weekRecords){
     for(const e of wr.ranked){
       const uid=e.uid||e.id;
+      const displayName=directory.get(uid)?.name||e.name||"Player";
       const cur=totals.get(uid)||{
-        uid,name:e.name||"Player",email:e.email||"",points:0,wins:0,losses:0,pushes:0,weeks:0,weeklyWins:0,bestWeek:0,weekRows:[]
+        uid,name:displayName,email:e.email||directory.get(uid)?.email||"",points:0,wins:0,losses:0,pushes:0,weeks:0,weeklyWins:0,bestWeek:0,weekRows:[]
       };
-      cur.name=e.name||cur.name;cur.email=e.email||cur.email;
+      cur.name=displayName;cur.email=e.email||directory.get(uid)?.email||cur.email;
       cur.points+=e._grade.score;cur.wins+=e._grade.wins;cur.losses+=e._grade.losses;cur.pushes+=e._grade.pushes;cur.weeks++;
       cur.bestWeek=Math.max(cur.bestWeek,e._grade.score);
       cur.weekRows.push({
@@ -1033,28 +1121,41 @@ async function buildSeasonData(){
     r.rankDelta=prev==null?null:prev-r.rank;
   });
 
-  return {rows,weekRecords,latest};
+  return {rows,weekRecords,latest,hasMovementBaseline:weekRecords.length>1};
 }
 
 function renderSeasonHistory(data){
   const host=$("seasonHistory"),detail=$("seasonHistoryDetail");
   if(!host) return;
-  const completed=data.weekRecords.filter(wr=>wr.final).slice().reverse();
-  if(!completed.length){
-    host.innerHTML='<p class="helper">No completed weeks yet.</p>';
+  const records=data.weekRecords.slice().reverse();
+  if(!records.length){
+    host.innerHTML='<p class="helper">No graded weeks yet. The current week will appear here once games begin.</p>';
     if(detail) detail.innerHTML="";
     return;
   }
-  host.innerHTML=`<div class="season-history-grid">${completed.map(wr=>{
-    const c=wr.champion;
-    const names=c?c.winners.map(w=>htmlEscape(w.name||"Player")).join(" & "):"—";
-    const tb=c?.winners?.[0]?._tb;
-    const tieText=c&&wr.ranked.filter(e=>e._grade.score===c.score).length>1&&tb?.available?`Tiebreak error ${tb.error}`:"Won on points";
-    return `<button type="button" class="week-history-card" data-week-history="${htmlEscape(wr.week.id)}">
-      <span class="week-history-label">${htmlEscape(wr.week.label||wr.week.id)}</span>
-      <strong>🏆 ${names}</strong>
-      <span>${c?`${c.score} pts · ${tieText}`:"Final"}</span>
-      <em>View final standings →</em>
+  host.innerHTML=`<div class="season-history-grid">${records.map(wr=>{
+    if(wr.final){
+      const c=wr.champion;
+      const names=c?c.winners.map(w=>htmlEscape(w.name||"Player")).join(" & "):"—";
+      const tb=c?.winners?.[0]?._tb;
+      const tieText=c&&wr.ranked.filter(e=>e._grade.score===c.score).length>1&&tb?.available?`Tiebreak error ${tb.error}`:"Won on points";
+      return `<button type="button" class="week-history-card complete" data-week-history="${htmlEscape(wr.week.id)}">
+        <span class="week-history-label">${htmlEscape(wr.week.label||wr.week.id)} · FINAL</span>
+        <strong>🏆 ${names}</strong>
+        <span>${c?`${c.score} pts · ${tieText}`:"Final"}</span>
+        <em>View final standings →</em>
+      </button>`;
+    }
+    const complete=(wr.week.games||[]).filter(isGameComplete).length;
+    const total=(wr.week.games||[]).length;
+    const leaders=wr.ranked.filter(e=>e._rank===1);
+    const leaderText=leaders.length?leaders.map(e=>htmlEscape(e.name||"Player")).join(" / "):"No leader yet";
+    const leaderScore=leaders[0]?._grade.score??0;
+    return `<button type="button" class="week-history-card in-progress" data-week-history="${htmlEscape(wr.week.id)}">
+      <span class="week-history-label">${htmlEscape(wr.week.label||wr.week.id)} · IN PROGRESS</span>
+      <strong>${leaderText}</strong>
+      <span>${complete} of ${total} final · ${leaderScore} pts leading</span>
+      <em>View live standings →</em>
     </button>`;
   }).join("")}</div>`;
   host.querySelectorAll("[data-week-history]").forEach(btn=>btn.onclick=()=>showWeekHistory(btn.dataset.weekHistory));
@@ -1066,15 +1167,16 @@ function showWeekHistory(weekId){
   if(!detail||!wr) return;
   const tb=wr.week.games?.find(g=>g.id===wr.week.tiebreakerGameId)||wr.week.games?.[0];
   const actual=finalScoresForGame(tb);
+  const live=!wr.final;
   detail.innerHTML=`<div class="week-history-detail-head">
-      <div><div class="login-kicker gold">FINAL STANDINGS</div><h3>${htmlEscape(wr.week.label||weekId)}</h3></div>
+      <div><div class="login-kicker gold">${live?"LIVE STANDINGS":"FINAL STANDINGS"}</div><h3>${htmlEscape(wr.week.label||weekId)}</h3></div>
       ${actual&&tb?`<div class="history-tiebreak-final"><span>Game of the Week</span><strong>${htmlEscape(shortTeam(tb.dog))} ${actual.teamA} – ${htmlEscape(shortTeam(tb.fav))} ${actual.teamB}</strong></div>`:""}
     </div>
     <div class="tracking-table-wrap"><table class="tracking-table history-standings-table">
-      <thead><tr><th>#</th><th>Player</th><th>Points</th><th>ATS</th><th>Tiebreak</th></tr></thead>
+      <thead><tr><th>#</th><th>Player</th><th>Points</th>${live?"<th>Max</th>":""}<th>ATS</th><th>Tiebreak</th></tr></thead>
       <tbody>${wr.ranked.map(e=>{
-        const tbText=e._tb.available?`${e._tb.error} error · ${e._tb.predicted.teamA}-${e._tb.predicted.teamB}`:"—";
-        return `<tr class="${e._rank===1?"history-winner-row":""}"><td>${e._rank}</td><td>${htmlEscape(e.name||"Player")}</td><td><strong>${e._grade.score}</strong></td><td>${e._grade.wins}-${e._grade.losses}-${e._grade.pushes}</td><td>${htmlEscape(tbText)}</td></tr>`;
+        const tbText=wr.final&&e._tb.available?`${e._tb.error} error · ${e._tb.predicted.teamA}-${e._tb.predicted.teamB}`:(live?"Pending final":"—");
+        return `<tr class="${e._rank===1?(wr.final?"history-winner-row":"history-live-leader-row"):""}"><td>${e._rank}</td><td>${htmlEscape(e.name||"Player")}</td><td><strong>${e._grade.score}</strong></td>${live?`<td>${e._grade.max}</td>`:""}<td>${e._grade.wins}-${e._grade.losses}-${e._grade.pushes}</td><td>${htmlEscape(tbText)}</td></tr>`;
       }).join("")}</tbody>
     </table></div>`;
   detail.scrollIntoView({behavior:"smooth",block:"nearest"});
@@ -1111,6 +1213,7 @@ async function renderSeasonLeaderboard(){
   try{
     seasonDataCache=await buildSeasonData();
     const rows=seasonDataCache.rows;
+    updatePersonalSeasonSummary(seasonDataCache);
     if(!rows.length){
       host.innerHTML='<p>No graded real weeks yet.</p>';
       renderSeasonHistory(seasonDataCache);
@@ -1118,10 +1221,10 @@ async function renderSeasonLeaderboard(){
     }
     host.innerHTML=`<div class="tracking-table-wrap"><table class="tracking-table standings-table">
       <thead><tr><th>#</th><th>Move</th><th class="sticky-player">Player</th><th>Points</th><th>ATS</th><th>Win %</th><th>Weekly Wins</th><th>Best Week</th></tr></thead>
-      <tbody>${rows.map(r=>`<tr>
+      <tbody>${rows.map(r=>`<tr class="${r.rank===1?"standings-leader-row":""}">
         <td class="standings-rank">${r.rank}</td>
-        <td>${rankMovementLabel(r.rankDelta,r.previousRank!=null)}</td>
-        <td class="sticky-player"><button type="button" class="player-link" data-player-profile="${htmlEscape(r.uid)}">${htmlEscape(r.name)}</button></td>
+        <td>${rankMovementLabel(r.rankDelta,r.previousRank!=null,seasonDataCache.hasMovementBaseline)}</td>
+        <td class="sticky-player"><button type="button" class="player-link" data-player-profile="${htmlEscape(r.uid)}"><span>${htmlEscape(r.name)}</span><small>View card →</small></button></td>
         <td class="score-col">${r.points}</td>
         <td>${r.wins}-${r.losses}-${r.pushes}</td>
         <td>${formatPct(r.wins,r.losses)}</td>
@@ -1132,6 +1235,7 @@ async function renderSeasonLeaderboard(){
     host.querySelectorAll("[data-player-profile]").forEach(btn=>btn.onclick=()=>showPlayerProfile(btn.dataset.playerProfile));
     renderSeasonHistory(seasonDataCache);
   }catch(e){
+    updatePersonalSeasonSummary(null);
     host.innerHTML=`<p class="helper">Unable to load season standings: ${htmlEscape(e.message)}</p>`;
     if($("seasonHistory")) $("seasonHistory").innerHTML='<p class="helper">Season history could not be loaded.</p>';
   }

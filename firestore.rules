@@ -18,8 +18,9 @@ service cloud.firestore {
       allow create: if signedIn() && request.auth.uid == uid &&
                     request.resource.data.role == "player";
       allow read: if signedIn();
-      allow update: if signedIn() && request.auth.uid == uid &&
-                    request.resource.data.role == resource.data.role;
+      allow update: if signedIn() &&
+        request.resource.data.role == resource.data.role &&
+        (request.auth.uid == uid || isAdmin());
       allow delete: if isAdmin();
     }
 

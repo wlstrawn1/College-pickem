@@ -730,3 +730,47 @@ button:disabled{opacity:.45;cursor:not-allowed}
   .player-profile-stats>div:nth-child(2n){border-right:0!important}
   .player-profile-stats>div:nth-last-child(-n+2){border-bottom:0}
 }
+
+/* V7.0.1 — Season Hub polish */
+.personal-summary-card{display:flex;flex-direction:column}
+.personal-summary-grid{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--soft-rule);margin:0 0 10px}
+.personal-summary-grid>div{padding:9px 10px;border-right:1px solid var(--soft-rule)}
+.personal-summary-grid>div:last-child{border-right:0}
+.personal-summary-grid span{display:block;color:var(--muted);font:900 8px Arial,sans-serif;letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px}
+.personal-summary-grid strong{font:900 24px/1 Arial,sans-serif}
+.personal-summary-card .summary-stat-small{font-size:18px}
+.week-status-summary .test-week-badge{margin-bottom:9px}
+.real-week-badge{background:var(--green)!important;color:#fff!important}
+
+.standings-table .standings-leader-row td{background:#fff3cf}
+.standings-table .standings-leader-row .sticky-player{background:#fff3cf;box-shadow:inset 5px 0 0 var(--gold)}
+.standings-table .standings-leader-row .standings-rank{color:#7d5915;font-size:16px}
+.player-link{display:flex!important;flex-direction:column;align-items:flex-start;gap:2px;text-decoration:none!important}
+.player-link>span{border-bottom:1px solid currentColor;line-height:1.15}
+.player-link>small{font:900 7px Arial,sans-serif!important;letter-spacing:.08em;text-transform:uppercase;color:var(--red);text-decoration:none}
+
+.week-history-card.in-progress{background:#fff9e8;box-shadow:inset 4px 0 0 var(--gold)}
+.week-history-card.in-progress .week-history-label{color:var(--red)}
+.week-history-card.complete{box-shadow:inset 4px 0 0 var(--green)}
+.history-live-leader-row{background:#fff9e8}
+.history-live-leader-row td:first-child{box-shadow:inset 4px 0 0 var(--gold)}
+
+.player-directory-panel{margin:18px 0 24px;border:2px solid var(--ink);background:#fffdf8}
+.player-directory-head{padding:18px;border-bottom:1px solid var(--ink)}
+.player-directory-head h3{margin:2px 0 6px;font-size:28px;text-transform:uppercase}
+.player-directory-head p{margin:0}
+.player-directory-list{padding:0}
+.player-directory-row{display:grid;grid-template-columns:minmax(230px,1fr) minmax(220px,1.2fr) auto;gap:10px;align-items:center;padding:10px 14px;border-top:1px solid var(--soft-rule)}
+.player-directory-row:first-child{border-top:0}
+.player-directory-row.duplicate-name{background:#fff1ee;box-shadow:inset 5px 0 0 var(--red)}
+.player-directory-identity strong{display:block;font:900 12px Arial,sans-serif}
+.player-directory-identity span{display:block;margin-top:4px}
+.duplicate-name-badge{display:inline-block;background:var(--red);color:#fff;padding:3px 5px;font:900 8px Arial,sans-serif;letter-spacing:.08em}
+.player-directory-row input{margin:0;background:#fff}
+.player-directory-row button{white-space:nowrap}
+
+@media(max-width:760px){
+  .personal-summary-grid{grid-template-columns:1fr 1fr}
+  .player-directory-row{grid-template-columns:1fr}
+  .player-directory-row button{width:100%}
+}

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>College Pick'em</title>
-  <link rel="stylesheet" href="styles.css?v=7.0.0">
+  <link rel="stylesheet" href="styles.css?v=7.0.2">
 </head>
 <body>
 
@@ -21,12 +21,12 @@
       <div class="eyebrow">THE SATURDAY SHEET</div>
       <div class="brand-row">
         <h1>College Pick'em</h1>
-        <span class="version-badge">v7.0.0</span>
+        <span class="version-badge">v7.0.2</span>
       </div>
       <p class="masthead-deck">Make the picks. Beat the number. Own Saturday.</p>
     </div>
     <div class="hero-wrap">
-      <img class="hero-image" src="sec-pickem-banner-v2.png?v=7.0.0" alt="College Football Pick'em SEC stadium banner">
+      <img class="hero-image" src="college-pickem-newspaper-banner.png?v=7.0.2" alt="College Football Pick'em newspaper-style season banner">
     </div>
     <div id="authBox"></div>
   </div>
@@ -96,18 +96,20 @@
         <div id="weekStatusTop" class="status-badge">PICKS OPEN</div>
       </div>
 
-      <div class="summary-card">
+      <div class="summary-card personal-summary-card">
         <div class="summary-card-title">Welcome, <span id="welcomeName">Player</span>!</div>
-        <div class="summary-stat-label">Overall Record</div>
-        <div class="summary-stat">0-0-0</div>
+        <div class="personal-summary-grid">
+          <div><span>Current Rank</span><strong id="personalRank">—</strong></div>
+          <div><span>Season Points</span><strong id="personalPoints">0</strong></div>
+        </div>
         <div class="summary-stat-label">Season ATS</div>
-        <div class="summary-stat-small">0-0-0 (0.0%)</div>
+        <div id="personalAts" class="summary-stat-small">0-0-0 (—)</div>
       </div>
 
-      <div class="summary-card">
-        <div class="summary-card-title">Test Mode</div>
-        <div id="testModeBadge" class="test-week-badge" hidden>TEST WEEK</div>
-        <div id="testModeText">This is a real week.<br>It affects standings.</div>
+      <div class="summary-card week-status-summary">
+        <div class="summary-card-title">Week Status</div>
+        <div id="testModeBadge" class="test-week-badge real-week-badge">REAL WEEK</div>
+        <div id="testModeText">Counts toward season standings.</div>
       </div>
     </div>
     <div id="picks" class="tab active">
@@ -309,6 +311,17 @@
           <div id="adminMissingList" class="missing-picks-list"><p class="helper">No player data loaded yet.</p></div>
         </section>
 
+        <section class="player-directory-panel">
+          <div class="player-directory-head">
+            <div>
+              <div class="login-kicker gold">PLAYER DIRECTORY</div>
+              <h3>League Display Names</h3>
+              <p id="adminPlayerDirectoryStatus" class="helper">Use this to clean up duplicate or incorrect names. Changes flow through Tracking, Leaderboard, History, and Player Cards.</p>
+            </div>
+          </div>
+          <div id="adminPlayerDirectory" class="player-directory-list"><p class="helper">Loading players…</p></div>
+        </section>
+
         <label for="lockDate"><strong>Pick Lock Date</strong></label>
         <input id="lockDate" type="date">
 
@@ -385,6 +398,6 @@
 </footer>
 
 
-<script type="module" src="app.js?v=7.0.0"></script>
+<script type="module" src="app.js?v=7.0.2"></script>
 </body>
 </html>
