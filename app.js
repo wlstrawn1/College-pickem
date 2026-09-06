@@ -21,7 +21,7 @@ const baseGames=[["#13 Alabama", "East Carolina", -28.5, 2], ["#7 Miami", "Stanf
 
 let user=null,profile=null,picks={},submittedAt=null,weekData=null,currentWeekId="week-1",availableWeeks=[],trackingEntries=[];
 let loginIntent=null;
-let scoreFeedLastUpdated=null,scoreFeedError="",scoreRefreshTimer=null;
+let scoreFeedLastUpdated=null,scoreFeedError="",scoreRefreshTimer=null,importedSlateCandidates=[];
 const ESPN_SCOREBOARD="https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard";
 const scoreFeedCache=new Map();
 const $=x=>document.getElementById(x);
@@ -70,8 +70,10 @@ async function seedWeekOne(){
     label:"Week 1",
     weekNumber:1,
     isTest:false,
+    seasonYear:2026,
     published:existingData.published??false,
     games:baseGames,
+    tiebreakerGameId:existingData.tiebreakerGameId||"g12",
     createdAt:existingData.createdAt||serverTimestamp(),
     slateUpdatedAt:serverTimestamp()
   },{merge:true});
@@ -187,10 +189,23 @@ function renderGames(){
   updateProgress(); updateLockUI();
 }
 
-function renderMy(){
+function tiebreakerGame(){
   const gs=gamesForWeek();
+  return gs.find(g=>g.id===weekData?.tiebreakerGameId) || gs.find(g=>normalizeTeamName(g.dog)==="clemson"&&normalizeTeamName(g.fav)==="lsu") || gs[0] || null;
+}
+
+function updateTiebreakUI(){
+  const g=tiebreakerGame();
+  if(!g) return;
+  if($("tiebreakMatchup")) $("tiebreakMatchup").textContent=`${g.dog} @ ${g.fav}`;
+  if($("clemsonScore")) $("clemsonScore").placeholder=shortTeam(g.dog);
+  if($("lsuScore")) $("lsuScore").placeholder=shortTeam(g.fav);
+}
+
+function renderMy(){
+  const gs=gamesForWeek(), tb=tiebreakerGame();
   $("myPicksView").innerHTML=gs.map(g=>`<p><b>${g.dog} vs ${g.fav}:</b> ${picks[g.id]||"No pick yet"}</p>`).join("")+
-    (($("clemsonScore").value!==""&&$("lsuScore").value!=="")?`<p><b>Game of the Week:</b> Clemson ${$("clemsonScore").value} – LSU ${$("lsuScore").value}</p>`:"");
+    (($("clemsonScore").value!==""&&$("lsuScore").value!==""&&tb)?`<p><b>Game of the Week:</b> ${tb.dog} ${$("clemsonScore").value} – ${tb.fav} ${$("lsuScore").value}</p>`:"");
   updateLockUI();
 }
 
@@ -244,7 +259,7 @@ function namesOverlap(target,comp){
 
 function weekFeedParams(w){
   const raw=w?.lockDate || (w?.lockAt?.toDate?w.lockAt.toDate().toISOString().slice(0,10):"");
-  const year=raw?Number(String(raw).slice(0,4)):new Date().getFullYear();
+  const year=Number(w?.seasonYear)||(raw?Number(String(raw).slice(0,4)):new Date().getFullYear());
   const week=Number(w?.weekNumber)||1;
   return {year,week};
 }
@@ -254,7 +269,7 @@ async function fetchEspnEventsForWeek(w,{force=false}={}){
   const cacheKey=`${year}-${week}`;
   const cached=scoreFeedCache.get(cacheKey);
   if(!force && cached && Date.now()-cached.fetchedAt<60000) return cached.events;
-  const url=`${ESPN_SCOREBOARD}?dates=${year}&seasontype=2&week=${week}&limit=200`;
+  const url=`${ESPN_SCOREBOARD}?dates=${year}&seasontype=2&week=${week}&groups=80&limit=300`;
   const response=await fetch(url,{cache:"no-store"});
   if(!response.ok) throw new Error(`Score feed returned ${response.status}`);
   const data=await response.json();
@@ -263,7 +278,154 @@ async function fetchEspnEventsForWeek(w,{force=false}={}){
   return events;
 }
 
+function rankedTeamLabel(comp){
+  const t=comp?.team||{};
+  const name=t.shortDisplayName||t.location||t.displayName||t.name||"Team";
+  const rank=Number(comp?.curatedRank?.current);
+  return Number.isFinite(rank)&&rank>0&&rank<=25?`#${rank} ${name}`:name;
+}
+
+function lineFavoriteFromOdds(competition,away,home){
+  const odds=(competition?.odds||[]).find(o=>o?.details)||(competition?.odds||[])[0]||null;
+  if(!odds) return {favorite:null,spread:null,details:""};
+  const details=String(odds.details||"").trim();
+  let favorite=null;
+  if(odds?.awayTeamOdds?.favorite) favorite=away;
+  if(odds?.homeTeamOdds?.favorite) favorite=home;
+  if(!favorite&&details){
+    const prefix=normalizeTeamName(details.replace(/[-+]?\d+(?:\.\d+)?\s*$/,""));
+    if(prefix){
+      if(espnCompetitorKeys(away).has(prefix)) favorite=away;
+      else if(espnCompetitorKeys(home).has(prefix)) favorite=home;
+      else {
+        const abbr=normalizeTeamName(details.split(/\s+/)[0]);
+        if(espnCompetitorKeys(away).has(abbr)) favorite=away;
+        else if(espnCompetitorKeys(home).has(abbr)) favorite=home;
+      }
+    }
+  }
+  const m=details.match(/(-?\d+(?:\.\d+)?)\s*$/);
+  let spread=m?Number(m[1]):Number(odds.spread);
+  if(!Number.isFinite(spread)||spread===0) spread=null;
+  if(spread!==null) spread=-Math.abs(spread);
+  return {favorite,spread,details};
+}
+
+function eventToSlateCandidate(event){
+  const competition=event?.competitions?.[0];
+  const competitors=competition?.competitors||[];
+  if(competitors.length<2) return null;
+  const away=competitors.find(c=>c.homeAway==="away")||competitors[1];
+  const home=competitors.find(c=>c.homeAway==="home")||competitors[0];
+  if(!away||!home) return null;
+  const awayName=rankedTeamLabel(away),homeName=rankedTeamLabel(home);
+  const line=lineFavoriteFromOdds(competition,away,home);
+  const favoriteComp=line.favorite;
+  const favorite=favoriteComp===away?awayName:favoriteComp===home?homeName:homeName;
+  const dog=favorite===awayName?homeName:awayName;
+  const awayRank=Number(away?.curatedRank?.current),homeRank=Number(home?.curatedRank?.current);
+  const bestRank=Math.min(Number.isFinite(awayRank)&&awayRank<=25?awayRank:99,Number.isFinite(homeRank)&&homeRank<=25?homeRank:99);
+  const rankedCount=[awayRank,homeRank].filter(r=>Number.isFinite(r)&&r<=25).length;
+  return {
+    id:`espn-${event.id}`,feedEventId:String(event.id),away:awayName,home:homeName,teams:[awayName,homeName],fav:favorite,dog,spread:line.spread,points:1,
+    date:event.date||competition?.date||"",network:(competition?.broadcasts?.[0]?.names||[])[0]||"",venue:competition?.venue?.fullName||"",lineDetails:line.details,hasLine:!!line.favorite&&line.spread!==null,
+    importance:(rankedCount>=2?0:rankedCount===1?100:1000)+bestRank
+  };
+}
+
+function slateTimeLabel(value){
+  if(!value) return "Time TBA";
+  const d=new Date(value);
+  if(Number.isNaN(d.getTime())) return "Time TBA";
+  return new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"}).format(d);
+}
+
+function selectedSlateRows(){
+  return [...document.querySelectorAll(".slate-game-row")].filter(row=>row.querySelector('[data-slate-select]')?.checked);
+}
+
+function updateSlateSelectionUI(){
+  const selected=selectedSlateRows().length,wanted=Math.max(1,Number($("importGameCount")?.value)||20);
+  if($("slateSelectedCount")) $("slateSelectedCount").textContent=`${selected} selected · ${wanted} wanted`;
+  if($("saveImportedSlate")) $("saveImportedSlate").disabled=!importedSlateCandidates.length||selected!==wanted;
+}
+
+function renderSlatePreview(candidates){
+  const host=$("importSlatePreview");
+  if(!host) return;
+  const wanted=Math.max(1,Number($("importGameCount")?.value)||20);
+  if(!candidates.length){host.innerHTML='<p class="helper">No FBS games were returned for that week.</p>';updateSlateSelectionUI();return;}
+  const sorted=[...candidates].sort((a,b)=>a.importance-b.importance||String(a.date).localeCompare(String(b.date))||a.away.localeCompare(b.away));
+  importedSlateCandidates=sorted;
+  host.innerHTML=`<div class="slate-preview-toolbar"><strong>${sorted.length} FBS games found</strong><span id="slateSelectedCount">0 selected · ${wanted} wanted</span></div><div class="slate-preview-list">${sorted.map((c,i)=>`
+    <div class="slate-game-row" data-candidate-id="${c.id}">
+      <label class="slate-select"><input type="checkbox" data-slate-select ${i<wanted?"checked":""}><span>Use</span></label>
+      <div class="slate-matchup"><strong>${c.away} @ ${c.home}</strong><span>${slateTimeLabel(c.date)}${c.network?` · ${c.network}`:""}</span><small>${c.hasLine?`ESPN line: ${c.lineDetails||`${c.fav} ${c.spread}`}`:"No ESPN spread found — confirm manually"}</small></div>
+      <label><span>Favorite</span><select data-slate-favorite><option value="${c.away}" ${c.fav===c.away?"selected":""}>${c.away}</option><option value="${c.home}" ${c.fav===c.home?"selected":""}>${c.home}</option></select></label>
+      <label><span>Spread</span><input data-slate-spread type="number" step="0.5" value="${c.spread??""}" placeholder="-7.5"></label>
+      <label><span>Pts</span><select data-slate-points><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></label>
+      <label class="slate-tiebreak"><span>Tiebreak</span><input type="radio" name="slateTiebreak" data-slate-tiebreak ${i===0?"checked":""}></label>
+    </div>`).join("")}</div>`;
+  host.querySelectorAll('[data-slate-select]').forEach(el=>el.addEventListener("change",updateSlateSelectionUI));
+  updateSlateSelectionUI();
+}
+
+async function importEspnSlate(){
+  if(profile?.role!=="admin") return;
+  const year=Number($("importSeason").value),week=Number($("importWeek").value);
+  if(!year||!week){$("importSlateMsg").textContent="Enter a season and week first.";return;}
+  $("importEspnSlate").disabled=true;$("importEspnSlate").textContent="Loading…";$("importSlateMsg").textContent="Loading the FBS slate from ESPN…";
+  try{
+    const events=await fetchEspnEventsForWeek({seasonYear:year,weekNumber:week},{force:true});
+    const candidates=events.map(eventToSlateCandidate).filter(Boolean);
+    renderSlatePreview(candidates);
+    const withLines=candidates.filter(c=>c.hasLine).length;
+    $("importSlateMsg").textContent=`Loaded ${candidates.length} FBS games. ESPN supplied a usable spread for ${withLines}; review every selected line before saving.`;
+  }catch(e){
+    importedSlateCandidates=[];renderSlatePreview([]);$("importSlateMsg").textContent=`Unable to load ESPN slate: ${e.message}`;
+  }finally{$("importEspnSlate").disabled=false;$("importEspnSlate").textContent="Load ESPN Slate";}
+}
+
+async function saveImportedSlateDraft(){
+  if(profile?.role!=="admin") return;
+  const year=Number($("importSeason").value),week=Number($("importWeek").value),wanted=Math.max(1,Number($("importGameCount").value)||20);
+  const rows=selectedSlateRows();
+  if(rows.length!==wanted){$("importSlateMsg").textContent=`Select exactly ${wanted} games before saving.`;return;}
+  const targetId=`week-${week}`;
+  const existing=await getDoc(doc(db,"weeks",targetId));
+  if(existing.exists()&&existing.data()?.published){$("importSlateMsg").textContent=`Week ${week} is already published. This builder will not overwrite a live card.`;return;}
+  const games=[];let tiebreakerGameId="";
+  for(const row of rows){
+    const c=importedSlateCandidates.find(x=>x.id===row.dataset.candidateId);
+    if(!c) continue;
+    const fav=row.querySelector('[data-slate-favorite]').value;
+    const dog=c.teams.find(t=>t!==fav);
+    const rawSpread=Number(row.querySelector('[data-slate-spread]').value);
+    const points=Number(row.querySelector('[data-slate-points]').value)||1;
+    if(!dog||!Number.isFinite(rawSpread)||rawSpread===0){$("importSlateMsg").textContent=`Every selected game needs a confirmed favorite and non-zero spread. Check ${c.away} @ ${c.home}.`;return;}
+    const game={id:c.id,feedEventId:c.feedEventId,fav,dog,spread:-Math.abs(rawSpread),points,date:c.date||null,network:c.network||""};
+    games.push(game);
+    if(row.querySelector('[data-slate-tiebreak]')?.checked) tiebreakerGameId=game.id;
+  }
+  if(!tiebreakerGameId) tiebreakerGameId=games[0]?.id||"";
+  const existingData=existing.exists()?existing.data():{};
+  await setDoc(doc(db,"weeks",targetId),{label:`Week ${week}`,weekNumber:week,seasonYear:year,isTest:false,published:false,games,tiebreakerGameId,importedFrom:"ESPN",importedAt:serverTimestamp(),createdAt:existingData.createdAt||serverTimestamp()},{merge:true});
+  currentWeekId=targetId;
+  $("importSlateMsg").textContent=`Week ${week} draft saved with ${games.length} games. Set the lock date/time, review the Picks card, then publish.`;
+  await loadWeeks();await switchWeek(targetId);setTab("admin");
+}
+
 function matchEspnEvent(game,events){
+  const directId=String(game?.feedEventId||game?.espnEventId||"");
+  if(directId){
+    const direct=events.find(e=>String(e?.id||"")===directId);
+    if(direct){
+      const competitors=direct?.competitions?.[0]?.competitors||[];
+      const fav=competitors.find(c=>namesOverlap(game.fav,c));
+      const dog=competitors.find(c=>namesOverlap(game.dog,c));
+      if(fav&&dog&&fav!==dog) return {event:direct,fav,dog};
+    }
+  }
   for(const event of events){
     const competitors=event?.competitions?.[0]?.competitors||[];
     if(competitors.length<2) continue;
@@ -295,7 +457,7 @@ function mergeScoreFeedIntoGames(games,events){
     const status=event?.status?.type||{};
     const completed=!!status.completed;
     const detail=status.shortDetail||status.detail||status.description||"Scheduled";
-    const next={...game,feedMatched:true,feedSource:"ESPN",feedEventId:event.id,feedStatus:detail,feedCompleted:completed};
+    const next={...game,feedMatched:true,feedSource:"ESPN",feedEventId:event.id,feedStatus:detail,feedCompleted:completed,feedState:status.state||null,feedPeriod:event?.status?.period??null,feedClock:event?.status?.displayClock||null};
     if(favScore!==null&&dogScore!==null){
       next.liveFavScore=favScore; next.liveDogScore=dogScore;
       next.final=`${shortTeam(game.dog)} ${dogScore} – ${shortTeam(game.fav)} ${favScore}`;
@@ -371,6 +533,34 @@ function shortTeam(name){
   return String(name||"").replace(/^#\d+\s+/,"");
 }
 
+function gameFeedState(g){
+  if(g.feedCompleted) return "final";
+  if(g.feedState==="in") return "live";
+  return "scheduled";
+}
+
+function gameFeedLabel(g){
+  if(g.feedCompleted) return "FINAL";
+  if(g.feedState==="in"){
+    const detail=String(g.feedStatus||"").trim();
+    return detail?`LIVE · ${detail}`:"LIVE";
+  }
+  return g.feedStatus||"Scheduled";
+}
+
+function gameScoreLabel(g){
+  if(g.liveFavScore===undefined||g.liveDogScore===undefined) return "";
+  return `${shortTeam(g.dog)} ${g.liveDogScore} – ${shortTeam(g.fav)} ${g.liveFavScore}`;
+}
+
+function pickPopularityForGame(g,entries){
+  const valid=(entries||[]).filter(e=>e.picks?.[g.id]===g.fav||e.picks?.[g.id]===g.dog);
+  if(!valid.length) return {favPct:0,dogPct:0,total:0};
+  const favCount=valid.filter(e=>e.picks?.[g.id]===g.fav).length;
+  const favPct=Math.round((favCount/valid.length)*100);
+  return {favPct,dogPct:100-favPct,total:valid.length};
+}
+
 async function loadTracking({skipScoreRefresh=false}={}){
   if(!skipScoreRefresh && weekData && !weekData.isTest) weekData=await hydrateWeekFromScoreFeed(weekData);
   const gs=gamesForWeek();
@@ -420,10 +610,45 @@ async function loadTracking({skipScoreRefresh=false}={}){
       const icon=state==="correct"?"✓":state==="wrong"?"✕":state==="push"?"—":"•";
       return `<td class="tracking-pick ${state}" title="${g.dog} vs ${g.fav}: ${pick}"><span class="tracking-pick-name">${icon} ${shortTeam(pick)}</span><small>${g.points||1} pt${Number(g.points||1)!==1?"s":""}</small></td>`;
     }).join("");
-    return `<tr class="${rank===1?"tracking-leader-row":""}"><td class="sticky-rank">${rank}</td><td class="sticky-player">${e.name||"Player"}</td><td class="score-col">${e._grade.score}</td><td class="score-col">${e._grade.max}</td>${cells}</tr>`;
+    return `<tr class="${rank===1?"tracking-leader-row":""}"><td class="sticky-rank">${rank}</td><td class="sticky-player">${e.name||"Player"}</td><td class="score-col sticky-score">${e._grade.score}</td><td class="score-col sticky-max">${e._grade.max}</td>${cells}</tr>`;
   }).join("");
-  const heads=gs.map((g,i)=>`<th title="${g.dog} vs ${g.fav}">G${i+1}<br><span class="muted">${g.points||1}pt</span></th>`).join("");
-  $("trackingView").innerHTML=`<table class="tracking-table"><thead><tr><th class="sticky-rank">#</th><th class="sticky-player">Player</th><th>Score</th><th>Max</th>${heads}</tr></thead><tbody>${rows}</tbody></table>`;
+  const heads=gs.map(g=>{
+    const pop=pickPopularityForGame(g,ranked);
+    const feedState=gameFeedState(g);
+    const score=gameScoreLabel(g);
+    const status=gameFeedLabel(g);
+    return `<th class="tracking-matchup-head" title="${g.dog} vs ${g.fav} — ${g.fav} ${g.spread}"><span class="tracking-matchup-name">${g.dog}<span class="tracking-vs">vs</span>${g.fav}</span><span class="tracking-matchup-meta">${g.fav} ${g.spread} · ${g.points||1} pt${Number(g.points||1)!==1?"s":""}</span><span class="tracking-game-status ${feedState}">${status}</span>${score?`<span class="tracking-live-score">${score}</span>`:""}<span class="tracking-popularity"><b>${shortTeam(g.fav)}</b> ${pop.favPct}% · <b>${shortTeam(g.dog)}</b> ${pop.dogPct}%</span></th>`;
+  }).join("");
+  $("trackingView").innerHTML=`<table class="tracking-table"><thead><tr><th class="sticky-rank">#</th><th class="sticky-player">Player</th><th class="sticky-score">Score</th><th class="sticky-max">Max</th>${heads}</tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+async function loadCommissionerDashboard(){
+  if(profile?.role!=="admin" || !$('adminMissingList')) return;
+  try{
+    const [usersSnap,entriesSnap]=await Promise.all([
+      getDocs(collection(db,"users")),
+      getDocs(collection(db,"weeks",currentWeekId,"entries"))
+    ]);
+    const players=usersSnap.docs.map(d=>({uid:d.id,...d.data()})).filter(p=>p.role==="player");
+    const submittedIds=new Set(entriesSnap.docs.filter(d=>d.data().submitted!==false).map(d=>d.id));
+    const missing=players.filter(p=>!submittedIds.has(p.uid)).sort((a,b)=>String(a.name||a.email||"").localeCompare(String(b.name||b.email||"")));
+    const submitted=players.length-missing.length;
+    $('adminRegisteredPlayers').textContent=String(players.length);
+    $('adminSubmittedCount').textContent=String(submitted);
+    $('adminMissingCount').textContent=String(missing.length);
+    const lockText=weekData?.lockAt?formatCentral(weekData.lockAt):"not set";
+    $('adminEntryStatus').textContent=isLocked()?`Deadline passed ${lockText}. ${missing.length?`${missing.length} player${missing.length===1?"":"s"} did not submit.`:"Everyone submitted."}`:`Picks lock ${lockText}. ${missing.length} player${missing.length===1?"":"s"} still need to submit.`;
+    if(!players.length){
+      $('adminMissingList').innerHTML='<p class="helper">No player profiles found yet.</p>';
+    }else if(!missing.length){
+      $('adminMissingList').innerHTML='<div class="all-picks-in">✓ Everyone is in for this week.</div>';
+    }else{
+      $('adminMissingList').innerHTML=missing.map(p=>`<div class="missing-player"><div><strong>${p.name||"Unnamed Player"}</strong><span>${p.email||"No email saved"}</span></div>${p.seasonPool?'<b class="pool-badge">Season Pool</b>':''}</div>`).join("");
+    }
+  }catch(e){
+    $('adminEntryStatus').textContent="Unable to load entry status.";
+    $('adminMissingList').innerHTML=`<p class="helper">${e.message}</p>`;
+  }
 }
 
 function renderAdminResults(){
@@ -486,29 +711,34 @@ function renderResults(){
   $("resultsStatus").textContent=weekData?.isTest?"Test results never affect the real season standings.":scoreFeedStatusText();
   $("resultsView").innerHTML=gs.map(g=>{
     const outcome=gameOutcome(g);
-    const score=(g.liveFavScore!==undefined&&g.liveDogScore!==undefined)?`${shortTeam(g.dog)} ${g.liveDogScore} – ${shortTeam(g.fav)} ${g.liveFavScore}`:(g.final||"Score pending");
-    const state=g.feedCompleted?"Final":(g.feedStatus||"Scheduled");
-    return `<div class="result-row"><span><strong>${g.dog} vs ${g.fav}</strong><br><small>${g.fav} ${g.spread} · ${state}</small></span><span class="result-final">${score}${outcome?` · ${outcome==="PUSH"?"Push":`${outcome} covers`}`:""}</span></div>`;
+    const score=gameScoreLabel(g)||(g.final||"Score pending");
+    const feedState=gameFeedState(g);
+    const state=gameFeedLabel(g);
+    return `<div class="result-row ${feedState}"><span><strong>${g.dog} vs ${g.fav}</strong><br><small>${g.fav} ${g.spread}</small></span><span class="result-status-block"><b class="result-status ${feedState}">${state}</b><span class="result-final">${score}${outcome?` · ${outcome==="PUSH"?"Push":`${outcome} covers`}`:""}</span></span></div>`;
   }).join("");
 }
 
 function renderConfirmation(){
   const gs=gamesForWeek(), count=gs.filter(g=>picks[g.id]).length;
   $("confirmCompleted").textContent=`${count} of ${gs.length}`;
-  $("confirmTiebreak").textContent=`Clemson ${$("clemsonScore").value} – LSU ${$("lsuScore").value}`;
+  const tb=tiebreakerGame();
+  $("confirmTiebreak").textContent=tb?`${tb.dog} ${$("clemsonScore").value} – ${tb.fav} ${$("lsuScore").value}`:"—";
   $("confirmSubmitted").textContent=submittedAt?.toDate?submittedAt.toDate().toLocaleString():new Date().toLocaleString();
   updateLockUI();
 }
 
 async function loadCurrentWeek(){
   const s=await getDoc(doc(db,"weeks",currentWeekId));
-  weekData=s.exists()?{id:s.id,...s.data()}:{id:currentWeekId,label:"Week 1",weekNumber:1,published:false,isTest:false,games:baseGames};
+  weekData=s.exists()?{id:s.id,...s.data()}:{id:currentWeekId,label:"Week 1",weekNumber:1,seasonYear:2026,published:false,isTest:false,games:baseGames,tiebreakerGameId:"g12"};
   weekData=await hydrateWeekFromScoreFeed(weekData);
   if(profile?.role==="admin"){
     $("lockDate").value=weekData.lockDate||"";
     $("lockTime").value=weekData.lockTime||"";
+    if($("importSeason")) $("importSeason").value=weekData.seasonYear||weekFeedParams(weekData).year;
+    if($("importWeek")) $("importWeek").value=weekData.weekNumber||1;
   }
   updateWeekUI();
+  updateTiebreakUI();
   renderAdminResults();
 }
 
@@ -517,8 +747,8 @@ async function loadPicks(){
   const s=await getDoc(doc(db,"weeks",currentWeekId,"entries",user.uid));
   if(s.exists()){
     const d=s.data(); picks=d.picks||{};
-    $("clemsonScore").value=d.tiebreak?.clemson??"";
-    $("lsuScore").value=d.tiebreak?.lsu??"";
+    $("clemsonScore").value=d.tiebreak?.teamA??d.tiebreak?.clemson??"";
+    $("lsuScore").value=d.tiebreak?.teamB??d.tiebreak?.lsu??"";
     submittedAt=d.submittedAt||d.updatedAt||null;
   }
   renderGames(); renderMy(); renderResults();
@@ -530,6 +760,7 @@ async function switchWeek(id){
   currentWeekId=id;
   await loadCurrentWeek();
   await loadPicks();
+  if(profile?.role==="admin") await loadCommissionerDashboard();
 }
 
 async function loadProfile(){
@@ -578,8 +809,8 @@ $("savePicks").onclick=async()=>{
   const gs=gamesForWeek(), completed=gs.filter(g=>picks[g.id]).length, clemson=$("clemsonScore").value, lsu=$("lsuScore").value;
   if(completed!==gs.length){$("saveMsg").textContent=`Please complete all ${gs.length} picks before submitting.`;return;}
   if(clemson===""||lsu===""){$("saveMsg").textContent="Please enter both Game of the Week score predictions.";return;}
-  const now=serverTimestamp();
-  await setDoc(doc(db,"weeks",currentWeekId,"entries",user.uid),{uid:user.uid,name:profile.name,picks,tiebreak:{clemson:+clemson,lsu:+lsu},submitted:true,submittedAt:submittedAt||now,updatedAt:now,isTest:!!weekData?.isTest},{merge:true});
+  const now=serverTimestamp(),tb=tiebreakerGame();
+  await setDoc(doc(db,"weeks",currentWeekId,"entries",user.uid),{uid:user.uid,name:profile.name,email:user.email||profile.email||null,picks,tiebreak:{teamA:+clemson,teamB:+lsu,teamAName:tb?.dog||"Team A",teamBName:tb?.fav||"Team B",gameId:tb?.id||null},submitted:true,submittedAt:submittedAt||now,updatedAt:now,isTest:!!weekData?.isTest},{merge:true});
   const refreshed=await getDoc(doc(db,"weeks",currentWeekId,"entries",user.uid));
   if(refreshed.exists()) submittedAt=refreshed.data().submittedAt||refreshed.data().updatedAt||null;
   $("saveMsg").textContent="";renderMy();renderConfirmation();setTab("confirmation");
@@ -588,6 +819,11 @@ $("savePicks").onclick=async()=>{
 $("viewMyPicks").onclick=()=>setTab("mypicks");
 $("editPicks").onclick=()=>{if(!isLocked())setTab("picks");};
 $("myPicksEdit").onclick=()=>{if(!isLocked())setTab("picks");};
+if($("refreshAdminDashboard")) $("refreshAdminDashboard").onclick=async()=>{
+  $("refreshAdminDashboard").disabled=true; $("refreshAdminDashboard").textContent="Refreshing…";
+  try{await loadCommissionerDashboard();}
+  finally{$("refreshAdminDashboard").disabled=false; $("refreshAdminDashboard").textContent="Refresh Entry Status";}
+};
 $("refreshTracking").onclick=async()=>{
   $("refreshTracking").disabled=true; $("refreshTracking").textContent="Refreshing…";
   try{await refreshAutomaticScores({force:true}); await renderSeasonLeaderboard();}
@@ -595,13 +831,16 @@ $("refreshTracking").onclick=async()=>{
 };
 $("saveResults").onclick=()=>saveWeeklyResults().catch(e=>$("resultsAdminMsg").textContent=e.message);
 $("loadWeek1").onclick=()=>seedWeekOne().catch(e=>$("adminMsg").textContent=e.message);
+$("importEspnSlate").onclick=()=>importEspnSlate();
+$("saveImportedSlate").onclick=()=>saveImportedSlateDraft().catch(e=>$("importSlateMsg").textContent=e.message);
+$("importGameCount").onchange=()=>{if(importedSlateCandidates.length)renderSlatePreview(importedSlateCandidates);};
 
 $("publishWeek").onclick=async()=>{
   if(profile?.role!=="admin")return;
   const dateStr=$("lockDate").value,timeStr=$("lockTime").value;
   if(!dateStr||!timeStr){$("adminMsg").textContent="Choose both a lock date and lock time.";return;}
   const lockDate=centralPartsToDate(dateStr,timeStr);
-  await setDoc(doc(db,"weeks",currentWeekId),{label:weekData?.label||"Week 1",weekNumber:weekData?.weekNumber||1,isTest:!!weekData?.isTest,games:gamesForWeek(),lockDate:dateStr,lockTime:timeStr,lockTimezone:"America/Chicago",lockAt:Timestamp.fromDate(lockDate),published:true,publishedAt:serverTimestamp()},{merge:true});
+  await setDoc(doc(db,"weeks",currentWeekId),{label:weekData?.label||"Week 1",weekNumber:weekData?.weekNumber||1,seasonYear:weekData?.seasonYear||weekFeedParams(weekData).year,isTest:!!weekData?.isTest,games:gamesForWeek(),tiebreakerGameId:weekData?.tiebreakerGameId||tiebreakerGame()?.id||null,lockDate:dateStr,lockTime:timeStr,lockTimezone:"America/Chicago",lockAt:Timestamp.fromDate(lockDate),published:true,publishedAt:serverTimestamp()},{merge:true});
   $("adminMsg").textContent=`${weekData?.label||"Week"} published. Picks lock ${formatCentral(lockDate)}.`;
   await loadWeeks();await switchWeek(currentWeekId);
 };
@@ -611,7 +850,7 @@ $("createTestWeek").onclick=async()=>{
   const existing=availableWeeks.filter(w=>w.isTest).map(w=>w.weekNumber||0);
   const n=Math.max(2,...existing)+1;
   const id=`test-week-${n}`;
-  await setDoc(doc(db,"weeks",id),{label:`Test Week ${n}`,weekNumber:n,isTest:true,published:true,games:baseGames,createdAt:serverTimestamp()});
+  await setDoc(doc(db,"weeks",id),{label:`Test Week ${n}`,weekNumber:n,seasonYear:new Date().getFullYear(),isTest:true,published:true,games:baseGames,tiebreakerGameId:"g12",createdAt:serverTimestamp()});
   currentWeekId=id;
   await loadWeeks();await switchWeek(id);
   $("adminMsg").textContent=`Test Week ${n} created. Set its Central Time lock date/time and publish when ready.`;
@@ -627,7 +866,7 @@ $("resetTestWeek").onclick=async()=>{
   $("adminMsg").textContent="Test submissions cleared. The test week itself is still available.";
 };
 
-document.querySelectorAll("nav button[data-tab]").forEach(b=>b.onclick=async()=>{setTab(b.dataset.tab);if(b.dataset.tab==="tracking")await loadTracking();if(b.dataset.tab==="results")await refreshAutomaticScores();if(b.dataset.tab==="leaderboard")await renderSeasonLeaderboard();});
+document.querySelectorAll("nav button[data-tab]").forEach(b=>b.onclick=async()=>{setTab(b.dataset.tab);if(b.dataset.tab==="tracking")await loadTracking();if(b.dataset.tab==="results")await refreshAutomaticScores();if(b.dataset.tab==="leaderboard")await renderSeasonLeaderboard();if(b.dataset.tab==="admin")await loadCommissionerDashboard();});
 
 scoreRefreshTimer=setInterval(async()=>{
   if(!user||!weekData||weekData.isTest) return;

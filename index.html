@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>College Pick'em</title>
-  <link rel="stylesheet" href="styles.css?v=6.6.1">
+  <link rel="stylesheet" href="styles.css?v=6.8.0">
 </head>
 <body>
 
@@ -21,7 +21,7 @@
       <div class="eyebrow">THE SATURDAY SHEET</div>
       <div class="brand-row">
         <h1>College Pick'em</h1>
-        <span class="version-badge">v6.6.1</span>
+        <span class="version-badge">v6.8.0</span>
       </div>
       <p class="masthead-deck">Make the picks. Beat the number. Own Saturday.</p>
     </div>
@@ -139,10 +139,10 @@
 
         <div class="tiebreak-panel">
           <h3>Game of the Week Tiebreaker</h3>
-          <p>Clemson @ #11 LSU — predict the final score.</p>
+          <p><span id="tiebreakMatchup">Game of the Week</span> — predict the final score.</p>
           <div class="score">
-            <input id="clemsonScore" type="number" min="0" placeholder="Clemson">
-            <input id="lsuScore" type="number" min="0" placeholder="LSU">
+            <input id="clemsonScore" type="number" min="0" placeholder="Team A">
+            <input id="lsuScore" type="number" min="0" placeholder="Team B">
           </div>
         </div>
 
@@ -262,6 +262,23 @@
         <h2>Commissioner</h2>
         <p class="helper">Set the weekly pick deadline in Central Time, then publish the week.</p>
 
+        <section class="commissioner-dashboard">
+          <div class="commissioner-dashboard-head">
+            <div>
+              <div class="login-kicker gold">ENTRY CHECK</div>
+              <h3>Who Still Owes Picks?</h3>
+              <p id="adminEntryStatus" class="helper">Loading player submission status…</p>
+            </div>
+            <button id="refreshAdminDashboard" type="button">Refresh Entry Status</button>
+          </div>
+          <div class="commissioner-stats">
+            <div><span>Registered Players</span><strong id="adminRegisteredPlayers">0</strong></div>
+            <div><span>Submitted</span><strong id="adminSubmittedCount">0</strong></div>
+            <div><span>Still Missing</span><strong id="adminMissingCount">0</strong></div>
+          </div>
+          <div id="adminMissingList" class="missing-picks-list"><p class="helper">No player data loaded yet.</p></div>
+        </section>
+
         <label for="lockDate"><strong>Pick Lock Date</strong></label>
         <input id="lockDate" type="date">
 
@@ -270,12 +287,26 @@
 
         <p class="timezone-note">Time Zone: Central Time (America/Chicago)</p>
 
-        <div class="week-one-seed">
-          <div>
-            <strong>Week 1 Slate</strong>
-            <p class="helper">The 20 Week 1 matchups are already built into this version. Load them into Firestore once, then set the lock time and publish.</p>
+        <div class="slate-builder">
+          <div class="slate-builder-head">
+            <div>
+              <div class="login-kicker gold">WEEKLY CARD BUILDER</div>
+              <h3>Import Games from ESPN</h3>
+              <p class="helper">Load the FBS slate, choose the 20 games you want, confirm the favorite/spread, assign point values, and save the week as a draft. Nothing publishes until you hit Publish / Update Week.</p>
+            </div>
           </div>
-          <button id="loadWeek1" class="admin-primary">Load Week 1 Games</button>
+          <div class="slate-builder-controls">
+            <label><span>Season</span><input id="importSeason" type="number" min="2020" max="2100" value="2026"></label>
+            <label><span>Week</span><input id="importWeek" type="number" min="1" max="20" value="1"></label>
+            <label><span>Games wanted</span><input id="importGameCount" type="number" min="1" max="30" value="20"></label>
+            <button id="importEspnSlate" class="admin-primary">Load ESPN Slate</button>
+          </div>
+          <p id="importSlateMsg" class="msg"></p>
+          <div id="importSlatePreview" class="slate-preview"><p class="helper">Load a week to preview the available FBS games.</p></div>
+          <div class="slate-builder-actions">
+            <button id="saveImportedSlate" class="primary" disabled>Save Selected Games as Draft</button>
+            <button id="loadWeek1">Use Built-In Week 1 Slate</button>
+          </div>
         </div>
 
         <div class="admin-actions">
@@ -320,6 +351,6 @@
 </footer>
 
 
-<script type="module" src="app.js?v=6.6.1"></script>
+<script type="module" src="app.js?v=6.8.0"></script>
 </body>
 </html>
