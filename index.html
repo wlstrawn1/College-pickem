@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>College Pick'em</title>
-  <link rel="stylesheet" href="styles-v7.0.24.css">
+  <link rel="stylesheet" href="styles-v7.0.27.css">
 </head>
 <body>
 
@@ -21,7 +21,7 @@
       <div class="eyebrow">THE SATURDAY SHEET</div>
       <div class="brand-row">
         <h1>College Pick'em</h1>
-        <span class="version-badge">v7.0.24</span>
+        <span class="version-badge">v7.0.27</span>
       </div>
       <p class="masthead-deck">Make the picks. Beat the number. Own Saturday.</p>
     </div>
@@ -102,19 +102,19 @@
 
       <div class="summary-card personal-summary-card">
         <div class="summary-card-title">Welcome, <span id="welcomeName">Player</span>!</div>
+        <div class="summary-stat-label" id="personalWeekLabel">This Week</div>
+        <div class="personal-summary-grid">
+          <div><span>Week Record</span><strong id="personalWeekRecord">0-0</strong></div>
+          <div><span>Week Rank</span><strong id="personalWeekRank">—</strong></div>
+        </div>
+
+        <div class="personal-summary-divider"></div>
         <div class="personal-summary-grid">
           <div><span>Season Rank</span><strong id="personalRank">—</strong></div>
           <div><span>Season Points</span><strong id="personalPoints">0</strong></div>
         </div>
         <div class="summary-stat-label">Season ATS</div>
         <div id="personalAts" class="summary-stat-small">0-0-0 (—)</div>
-
-        <div class="personal-summary-divider"></div>
-        <div class="summary-stat-label" id="personalWeekLabel">This Week</div>
-        <div class="personal-summary-grid">
-          <div><span>Week Record</span><strong id="personalWeekRecord">0-0</strong></div>
-          <div><span>Week Rank</span><strong id="personalWeekRank">—</strong></div>
-        </div>
       </div>
 
       <div class="summary-card week-status-summary">
@@ -469,6 +469,6 @@
 </footer>
 
 
-<script type="module" src="app-v7.0.24.js"></script>
+<script type="module" src="app-v7.0.27.js"></script>
 </body>
 </html>
