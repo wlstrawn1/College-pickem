@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>College Pick'em</title>
-  <link rel="stylesheet" href="styles-v7.0.30.css">
+  <link rel="stylesheet" href="styles-v7.0.35.css">
 </head>
 <body>
 
@@ -21,7 +21,7 @@
       <div class="eyebrow">THE SATURDAY SHEET</div>
       <div class="brand-row">
         <h1>College Pick'em</h1>
-        <span class="version-badge">v7.0.30</span>
+        <span class="version-badge">v7.0.35</span>
       </div>
       <p class="masthead-deck">Make the picks. Beat the number. Own Saturday.</p>
     </div>
@@ -36,9 +36,9 @@
   <div class="nav-inner">
     <button data-tab="picks" class="active">Picks</button>
     <button data-tab="mypicks">My Picks</button>
-    <button data-tab="leaderboard">Season Leaderboard</button>
     <button data-tab="tracking">Weekly Tracking</button>
-    <button data-tab="results">Results</button>
+    <button data-tab="leaderboard">Season Leaderboard</button>
+    <button data-tab="results">Game Results</button>
     <button data-tab="admin" id="adminTab" hidden>Admin</button>
   </div>
 </nav>
@@ -75,7 +75,7 @@
   </div>
 
   <section id="profileCard" class="card" hidden>
-    <h2>Finish your profile</h2>
+    <h2 id="profileCardTitle">Finish your profile</h2>
     <label for="displayName"><strong>First and Last Name</strong></label>
     <p class="helper">Please enter your first and last name. This is how your name will appear in the standings.</p>
     <input id="displayName" placeholder="Example: Nick Saban" autocomplete="name">
@@ -83,7 +83,11 @@
       <input id="seasonPool" type="checkbox">
       Join the $10 season ATS pot
     </label>
-    <button id="saveProfile" class="primary">Save profile</button>
+    <p id="seasonPoolLockNote" class="helper" hidden>You've already joined the season pool — this can't be undone here. Contact the commissioner if this was a mistake.</p>
+    <div class="row">
+      <button id="saveProfile" class="primary">Save profile</button>
+      <button id="cancelProfileEdit" type="button" hidden>Cancel</button>
+    </div>
     <p id="profileMsg" class="msg"></p>
   </section>
 
@@ -101,7 +105,10 @@
       </div>
 
       <div class="summary-card personal-summary-card">
-        <div class="summary-card-title">Welcome, <span id="welcomeName">Player</span>!</div>
+        <div class="summary-card-title-row">
+          <div class="summary-card-title">Welcome, <span id="welcomeName">Player</span>!</div>
+          <button id="editNameBtn" type="button" class="link-btn edit-name-btn">Edit name</button>
+        </div>
         <div class="summary-stat-label" id="personalWeekLabel">This Week</div>
         <div class="personal-summary-grid">
           <div><span>Week Record</span><strong id="personalWeekRecord">0-0</strong></div>
@@ -109,10 +116,8 @@
         </div>
 
         <div class="personal-summary-divider"></div>
-        <div class="personal-summary-grid">
-          <div><span>Season Rank</span><strong id="personalRank">—</strong></div>
-          <div><span>Season Points</span><strong id="personalPoints">0</strong></div>
-        </div>
+        <div class="summary-stat-label">Season Rank</div>
+        <div id="personalRank" class="summary-stat-small">—</div>
         <div class="summary-stat-label">Season ATS</div>
         <div id="personalAts" class="summary-stat-small">0-0-0 (—)</div>
       </div>
@@ -300,7 +305,7 @@
 
     <div id="results" class="tab">
       <div class="card">
-        <h2 id="resultsTitle">Results</h2>
+        <h2 id="resultsTitle">Game Results</h2>
         <p id="resultsStatus" class="muted"></p>
         <div id="resultsView"></div>
       </div>
@@ -469,6 +474,6 @@
 </footer>
 
 
-<script type="module" src="app-v7.0.30.js"></script>
+<script type="module" src="app-v7.0.35.js"></script>
 </body>
 </html>

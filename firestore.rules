@@ -14,12 +14,24 @@ service cloud.firestore {
              request.time < weekDoc(weekId).data.lockAt;
     }
 
+    function seasonPoolNotRevoked() {
+      // Once a player has opted into the season-long ATS pot, a non-admin
+      // update can never flip it back to false/absent. Admins can still
+      // correct a mistaken opt-in if genuinely needed. Uses .get() with a
+      // default so older docs that never had a seasonPool field don't
+      // error out on evaluation.
+      return isAdmin() ||
+        resource.data.get('seasonPool', false) != true ||
+        request.resource.data.get('seasonPool', false) == true;
+    }
+
     match /users/{uid} {
       allow create: if signedIn() && request.auth.uid == uid &&
                     request.resource.data.role == "player";
       allow read: if signedIn();
       allow update: if signedIn() &&
         request.resource.data.role == resource.data.role &&
+        seasonPoolNotRevoked() &&
         (request.auth.uid == uid || isAdmin());
       allow delete: if isAdmin();
     }
