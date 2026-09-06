@@ -1,22 +1,28 @@
-# College Pick’em V7.0.10 — Historical Week 1 Import Hardening
+# College Pick'em V7.0.11 — Week 1 Game Order
 
-This build fixes the Week 1 Google Forms import when the Week 1 game objects stored in Firestore use a different order or slightly different team labels.
+This patch puts Week 1 in the exact original card/submission order requested by the commissioner:
 
-Changes:
-- Parses the original 20 Week 1 Google Form questions against the fixed historical Week 1 slate.
-- Maps those historical games to the current Week 1 Firestore games by game ID first, then by team identity.
-- Converts each historical pick to the exact favorite/underdog string used by the stored Week 1 card.
-- Keeps support for the single combined Clemson/LSU tiebreaker field.
-- Ignores appended non-submission summary rows.
-- Gives a specific warning to use “Load Week 1 Games” only if the stored Week 1 card is actually missing a historical matchup.
-- Uses new JS/CSS filenames to prevent a cached older importer from running.
-- All V7.0.8 features remain.
+1. Colorado @ Georgia Tech
+2. #7 Miami @ Stanford
+3. Fresno State @ #14 USC
+4. North Texas @ #6 Indiana
+5. East Carolina @ #13 Alabama
+6. Oregon State @ #23 Houston
+7. Baylor vs. Auburn
+8. Boise State @ #2 Oregon
+9. Marshall @ #18 Penn State
+10. Boston College @ Cincinnati
+11. North Alabama @ Arkansas
+12. UL Monroe @ Mississippi State
+13. Clemson @ #11 LSU
+14. Western Michigan @ #16 Michigan
+15. Florida Atlantic @ Florida
+16. UCLA @ California
+17. Washington State @ #17 Washington
+18. Wisconsin vs. #4 Notre Dame
+19. #24 Louisville vs. #9 Ole Miss
+20. #19 SMU @ Florida State
 
-No Firestore rules change is required.
+Important compatibility detail: matchup IDs remain attached to the same games as previous builds, so existing Firestore picks/results are not remapped to the wrong matchup. Week 1 is also normalized into this order at render time even if Firestore still contains the older array order.
 
-
-## V7.0.10 fix
-- Historical Week 1 importer now includes an explicit resolver for every code used by the original 2026 Google Form.
-- Covers CLEM/LSU, UM/WMU, UF/FAU, UCLA/CAL, WAS/WSU, and every other Week 1 response code.
-- Preview errors now include the raw unrecognized value for easier diagnosis.
-- Preview displays the historical importer version so browser-cache issues are easy to spot.
+All V7.0.10 historical-import fixes and prior functionality remain intact.
