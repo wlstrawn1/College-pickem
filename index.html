@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>College Pick'em</title>
-  <link rel="stylesheet" href="styles.css?v=7.0.4">
+  <link rel="stylesheet" href="styles.css?v=7.0.5">
 </head>
 <body>
 
@@ -21,12 +21,12 @@
       <div class="eyebrow">THE SATURDAY SHEET</div>
       <div class="brand-row">
         <h1>College Pick'em</h1>
-        <span class="version-badge">v7.0.4</span>
+        <span class="version-badge">v7.0.5</span>
       </div>
       <p class="masthead-deck">Make the picks. Beat the number. Own Saturday.</p>
     </div>
     <div class="hero-wrap">
-      <img class="hero-image" src="college-pickem-newspaper-banner.png?v=7.0.4" alt="College Football Pick'em newspaper-style season banner">
+      <img class="hero-image" src="college-pickem-newspaper-banner.png?v=7.0.5" alt="College Football Pick'em newspaper-style season banner">
     </div>
     <div id="authBox"></div>
   </div>
@@ -309,6 +309,17 @@
             <div><span>Still Missing</span><strong id="adminMissingCount">0</strong></div>
           </div>
           <div id="adminMissingList" class="missing-picks-list"><p class="helper">No player data loaded yet.</p></div>
+
+          <div class="submitted-entry-panel">
+            <div class="submitted-entry-head">
+              <div>
+                <h4>Submitted Entries</h4>
+                <p class="helper">Commissioner cleanup tools. Delete only duplicate, test, or incorrect submissions — this permanently removes that entry from the selected week.</p>
+              </div>
+              <span id="adminEntryDeleteMsg" class="msg"></span>
+            </div>
+            <div id="adminSubmittedEntries" class="submitted-entry-list"><p class="helper">No submitted entries loaded yet.</p></div>
+          </div>
         </section>
 
         <section class="player-directory-panel">
@@ -421,6 +432,6 @@
 </footer>
 
 
-<script type="module" src="app.js?v=7.0.4"></script>
+<script type="module" src="app.js?v=7.0.5"></script>
 </body>
 </html>

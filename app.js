@@ -901,6 +901,37 @@ async function loadTracking({skipScoreRefresh=false}={}){
   $("trackingView").innerHTML=`<table class="tracking-table"><thead><tr><th class="sticky-rank">#</th><th class="sticky-player">Player</th><th class="sticky-score">Score</th><th class="sticky-max">Max</th>${heads}</tr></thead><tbody>${rows}</tbody></table>`;
 }
 
+async function deleteCommissionerEntry(entryId,button){
+  if(profile?.role!=="admin"||!entryId) return;
+  const ref=doc(db,"weeks",currentWeekId,"entries",entryId);
+  const snap=await getDoc(ref);
+  if(!snap.exists()){
+    if($("adminEntryDeleteMsg")) $("adminEntryDeleteMsg").textContent="That entry no longer exists.";
+    await loadCommissionerDashboard();
+    return;
+  }
+  const entry={id:snap.id,...snap.data()};
+  const directory=playerDirectoryCache||new Map();
+  const identity=resolveEntryIdentity(entry,directory);
+  const playerName=identity.name||entry.name||"this player";
+  const weekLabel=weekData?.label||currentWeekId;
+  const ok=window.confirm(`Delete ${playerName}'s ${weekLabel} submission?\n\nThis permanently removes the picks and tiebreaker for this week. This cannot be undone.`);
+  if(!ok) return;
+  const original=button?.textContent;
+  if(button){button.disabled=true;button.textContent="Deleting…";}
+  try{
+    await deleteDoc(ref);
+    if($("adminEntryDeleteMsg")) $("adminEntryDeleteMsg").textContent=`Deleted ${playerName}'s ${weekLabel} entry.`;
+    if(user?.uid===entryId) await loadPicks();
+    await loadCommissionerDashboard();
+    await loadTracking();
+    await renderSeasonLeaderboard();
+  }catch(e){
+    if($("adminEntryDeleteMsg")) $("adminEntryDeleteMsg").textContent=`Delete failed: ${e.message}`;
+    if(button){button.disabled=false;button.textContent=original||"Delete Entry";}
+  }
+}
+
 async function loadCommissionerDashboard(){
   if(profile?.role!=="admin" || !$('adminMissingList')) return;
   try{
@@ -912,7 +943,15 @@ async function loadCommissionerDashboard(){
     playerDirectoryCache=new Map(allUsers.map(p=>[p.uid,p]));
     const players=allUsers.filter(p=>p.role==="player");
     renderAdminPlayerDirectory(players);
-    const submittedIds=new Set(entriesSnap.docs.filter(d=>d.data().submitted!==false).map(d=>d.id));
+
+    const submittedEntries=entriesSnap.docs
+      .filter(d=>d.data().submitted!==false)
+      .map(d=>{
+        const entry={id:d.id,...d.data()};
+        return {...entry,_docId:d.id,_identity:resolveEntryIdentity(entry,playerDirectoryCache)};
+      })
+      .sort((a,b)=>String(a._identity?.name||a.name||a.email||"").localeCompare(String(b._identity?.name||b.name||b.email||"")));
+    const submittedIds=new Set(submittedEntries.map(e=>e._identity?.canonicalUid||e._docId));
     const missing=players.filter(p=>!submittedIds.has(p.uid)).sort((a,b)=>String(a.name||a.email||"").localeCompare(String(b.name||b.email||"")));
     const submitted=players.length-missing.length;
     $('adminRegisteredPlayers').textContent=String(players.length);
@@ -925,11 +964,30 @@ async function loadCommissionerDashboard(){
     }else if(!missing.length){
       $('adminMissingList').innerHTML='<div class="all-picks-in">✓ Everyone is in for this week.</div>';
     }else{
-      $('adminMissingList').innerHTML=missing.map(p=>`<div class="missing-player"><div><strong>${p.name||"Unnamed Player"}</strong><span>${p.email||"No email saved"}</span></div>${p.seasonPool?'<b class="pool-badge">Season Pool</b>':''}</div>`).join("");
+      $('adminMissingList').innerHTML=missing.map(p=>`<div class="missing-player"><div><strong>${htmlEscape(p.name||"Unnamed Player")}</strong><span>${htmlEscape(p.email||"No email saved")}</span></div>${p.seasonPool?'<b class="pool-badge">Season Pool</b>':''}</div>`).join("");
+    }
+
+    if($("adminSubmittedEntries")){
+      if(!submittedEntries.length){
+        $("adminSubmittedEntries").innerHTML='<p class="helper">No submitted entries for this week.</p>';
+      }else{
+        $("adminSubmittedEntries").innerHTML=submittedEntries.map(e=>{
+          const name=e._identity?.name||e.name||"Unnamed Player";
+          const email=e._identity?.email||e.email||"No email saved";
+          const submittedAt=e.submittedAt||e.updatedAt||null;
+          const source=e._docId.startsWith("hist-")?"Historical import":"Account entry";
+          const when=submittedAt?formatCentral(submittedAt):"Submission time unavailable";
+          return `<div class="submitted-entry-row"><div class="submitted-entry-person"><strong>${htmlEscape(name)}</strong><span>${htmlEscape(email)}</span><small>${htmlEscape(source)} · ${htmlEscape(when)}</small></div><button class="danger-entry-btn" type="button" data-delete-entry="${htmlEscape(e._docId)}">Delete Entry</button></div>`;
+        }).join("");
+        $("adminSubmittedEntries").querySelectorAll("[data-delete-entry]").forEach(btn=>{
+          btn.onclick=()=>deleteCommissionerEntry(btn.dataset.deleteEntry,btn);
+        });
+      }
     }
   }catch(e){
     $('adminEntryStatus').textContent="Unable to load entry status.";
-    $('adminMissingList').innerHTML=`<p class="helper">${e.message}</p>`;
+    $('adminMissingList').innerHTML=`<p class="helper">${htmlEscape(e.message)}</p>`;
+    if($("adminSubmittedEntries")) $("adminSubmittedEntries").innerHTML=`<p class="helper">${htmlEscape(e.message)}</p>`;
   }
 }
 

@@ -798,3 +798,22 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .history-import-table .ok{color:#1f7a47;font-weight:800}.history-import-table .bad{color:#b72222;font-weight:800}.history-import-table .warn{color:#8a5d00;font-weight:800}
 .history-import-errors{border-left:4px solid #b72222;background:#fff0ee;padding:10px 12px;margin:10px 0}
 @media(max-width:760px){.historical-import-actions{grid-template-columns:1fr}.history-import-summary{grid-template-columns:1fr 1fr}.history-import-summary>div:nth-child(2){border-right:0}.history-import-summary>div:nth-child(-n+2){border-bottom:1px solid #d5ccbc}.historical-import-head{flex-direction:column}}
+
+/* V7.0.5 — commissioner entry cleanup */
+.submitted-entry-panel{margin-top:18px;border-top:2px solid var(--rule);padding-top:16px}
+.submitted-entry-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:10px}
+.submitted-entry-head h4{margin:0 0 3px;font:800 18px Georgia,serif}
+.submitted-entry-head .helper{margin:0;max-width:760px}
+.submitted-entry-list{border:1px solid var(--soft-rule);background:rgba(255,255,255,.28)}
+.submitted-entry-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:11px 14px;border-top:1px solid var(--soft-rule);font-family:Arial,sans-serif}
+.submitted-entry-row:first-child{border-top:0}
+.submitted-entry-person strong{display:block;font-size:14px}
+.submitted-entry-person span{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+.submitted-entry-person small{display:block;color:var(--muted);font-size:10px;margin-top:3px;text-transform:uppercase;letter-spacing:.04em}
+.danger-entry-btn{background:#8f1717!important;border-color:#6f0e0e!important;color:#fff!important;font-weight:800!important;white-space:nowrap}
+.danger-entry-btn:hover{background:#721010!important}
+.danger-entry-btn:disabled{opacity:.55;cursor:wait}
+@media(max-width:700px){
+  .submitted-entry-head,.submitted-entry-row{align-items:flex-start;flex-direction:column}
+  .danger-entry-btn{width:100%}
+}

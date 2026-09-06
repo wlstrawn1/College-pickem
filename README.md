@@ -1,25 +1,23 @@
-# College Pick'em V7.0.4 — Week 1 Historical Import
+# College Pick'em V7.0.5 — Commissioner Entry Cleanup
 
-This build adds a commissioner-only bulk importer for the original Week 1 submissions.
+This build adds safe submission cleanup directly inside the Commissioner Entry Check.
 
-## New
-- Admin → Historical Data → Import Week 1 Submissions.
-- Upload CSV/TSV exported from Google Sheets, or paste the table directly.
-- Preview verifies every player, all 20 picks, and the Game of the Week score prediction before import.
-- Existing Firebase player accounts link automatically by email when possible.
-- Players who have not registered yet are stored as historical participants and still appear in Weekly Tracking, Season Leaderboard, Season History, and player cards.
-- If a historical participant later creates an account with the same email, season calculations automatically merge that Week 1 history into the registered account.
-- Re-import preview warns when an existing Week 1 entry would be replaced.
-- Downloadable Week 1 CSV template included in the Admin interface.
+Changes:
+- Adds a Submitted Entries list for the currently selected week.
+- Shows player name, email, submission source, and submission time.
+- Adds a red **Delete Entry** button for each submitted entry.
+- Requires a confirmation before deleting.
+- Deleting permanently removes that week's picks and tiebreaker from Firestore.
+- Weekly Tracking, Season Leaderboard, Season History, and commissioner counts refresh after deletion.
+- Historical imported entries can also be deleted from the same screen.
+- Improves the commissioner submitted-player matching so historical entries linked by email count correctly.
+- Keeps all V7.0.4 historical import and V7.0.3 naming changes.
 
-## Firestore rules
-The included firestore.rules file adds commissioner permission to create/update historical weekly entries. Publish these rules in Firebase before running the bulk import.
+Upload/replace:
+- index.html
+- styles.css
+- app.js
+- college-pickem-newspaper-banner.png
+- README.md
 
-## Import workflow
-1. Export the original Week 1 sheet as CSV (or copy/paste it from Google Sheets).
-2. Admin → Historical Data → Import Week 1 Submissions.
-3. Upload/paste the data.
-4. Review the preview. Import stays disabled until all 20 picks and both tiebreak scores map correctly for every submission.
-5. Click Import Week 1 Entries.
-
-All V7.0.3 features remain unchanged.
+Firestore rules are unchanged from V7.0.4. Existing admin rules already allow commissioners to delete weekly entries.
