@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>College Pick'em</title>
-  <link rel="stylesheet" href="styles-v7.0.43.css">
+  <link rel="stylesheet" href="styles-v7.0.44.css">
 </head>
 <body>
 
@@ -21,7 +21,7 @@
       <div class="eyebrow">THE SATURDAY SHEET</div>
       <div class="brand-row">
         <h1>College Pick'em</h1>
-        <span class="version-badge">v7.0.43</span>
+        <span class="version-badge">v7.0.44</span>
       </div>
       <p class="masthead-deck">Make the picks. Beat the number. Own Saturday.</p>
     </div>
@@ -355,6 +355,18 @@
           <div id="adminPlayerDirectory" class="player-directory-list"><p class="helper">Loading players…</p></div>
         </section>
 
+        <section class="unlinked-entries-panel">
+          <div class="unlinked-entries-head">
+            <div>
+              <div class="login-kicker gold">HISTORICAL DATA</div>
+              <h3>Unlinked Historical Entries</h3>
+              <p id="unlinkedEntriesStatus" class="helper">A historical import entry stays unlinked from a real account until that email signs up. Relink it here once they have — this fixes their own My Picks / Week Record / Week Rank, which otherwise stay blank even though the Season Leaderboard already credits them correctly by email.</p>
+            </div>
+            <button id="refreshUnlinkedEntries" type="button">Check For Entries</button>
+          </div>
+          <div id="unlinkedEntriesList" class="unlinked-entries-list"><p class="helper">Click "Check For Entries" to scan.</p></div>
+        </section>
+
         <section class="future-week-panel">
           <div class="future-week-head">
             <div>
@@ -474,6 +486,6 @@
 </footer>
 
 
-<script type="module" src="app-v7.0.43.js"></script>
+<script type="module" src="app-v7.0.44.js"></script>
 </body>
 </html>
