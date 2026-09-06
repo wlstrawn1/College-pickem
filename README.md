@@ -1,11 +1,24 @@
-# College Pick'em V7.0.12 — Historical No-Pick Support
+# College Pick'em V7.0.14 — Latest Published Week Default
 
-Changes from V7.0.11:
-- Historical Week 1 imports may contain intentional blank picks.
-- Blank historical picks are stored as no-picks, score zero, do not count as ATS losses, and do not increase Max Possible.
-- Import preview shows the number of no-pick games for that entry.
-- Import records retain the affected game IDs for audit/history.
-- Karter Smith's adjusted Week 1 CSV can therefore be imported with his first three completed games blank.
-- Keeps the exact Week 1 game order and all V7.0.11 functionality.
+This build includes all V7.0.13 future-week draft tools plus automatic player landing behavior.
 
-No Firestore rules change is required from the current rules.
+## Player week behavior
+- Commissioners can create Week 2, Week 3, etc. as unpublished drafts.
+- Draft weeks remain visible only to admins.
+- Players continue to see only published weeks.
+- On a player's next page load/sign-in, the site automatically opens the highest-numbered published real week.
+- Test weeks never become the default player week.
+- Players can still use the selector to review older published weeks without being forced back to the newest week during that session.
+
+Example: once Week 2 is published, players land on Week 2 after refresh/sign-in, while Week 1 remains available in the selector.
+
+## Upload/replace
+- index.html
+- styles-v7.0.14.css
+- app-v7.0.14.js
+- college-pickem-newspaper-banner.png
+- cfb-pickem-banner.png
+- sec-pickem-banner-v2.png
+- README.md
+
+Firestore rules are unchanged from the current rules already published.

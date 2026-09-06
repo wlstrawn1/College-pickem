@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>College Pick'em</title>
-  <link rel="stylesheet" href="styles-v7.0.12.css">
+  <link rel="stylesheet" href="styles-v7.0.14.css">
 </head>
 <body>
 
@@ -21,7 +21,7 @@
       <div class="eyebrow">THE SATURDAY SHEET</div>
       <div class="brand-row">
         <h1>College Pick'em</h1>
-        <span class="version-badge">v7.0.12</span>
+        <span class="version-badge">v7.0.14</span>
       </div>
       <p class="masthead-deck">Make the picks. Beat the number. Own Saturday.</p>
     </div>
@@ -342,6 +342,25 @@
           <div id="adminPlayerDirectory" class="player-directory-list"><p class="helper">Loading players…</p></div>
         </section>
 
+        <section class="future-week-panel">
+          <div class="future-week-head">
+            <div>
+              <div class="login-kicker gold">WEEK MANAGEMENT</div>
+              <h3>Create Future Weeks</h3>
+              <p class="helper">Create an unpublished draft first, then open that week in the selector and build its ESPN card there. Draft weeks are visible to commissioners only until published.</p>
+            </div>
+            <span class="history-import-badge">ADMIN ONLY</span>
+          </div>
+          <div class="future-week-controls">
+            <label><span>Season</span><input id="futureWeekSeason" type="number" min="2020" max="2100" value="2026"></label>
+            <label><span>Week number</span><input id="futureWeekNumber" type="number" min="2" max="20" value="2"></label>
+            <button id="createFutureWeek" class="primary" type="button">Create Draft Week</button>
+            <button id="createNextWeek" type="button">Create Next Week</button>
+          </div>
+          <p id="futureWeekMsg" class="msg">Create Week 2 now if you want to prepare it before Week 1 is finished.</p>
+          <div id="futureWeekList" class="future-week-list"></div>
+        </section>
+
         <section class="historical-import-panel">
           <div class="historical-import-head">
             <div>
@@ -378,8 +397,9 @@
             <div>
               <div class="login-kicker gold">WEEKLY CARD BUILDER</div>
               <h3>Import Games from ESPN</h3>
-              <p class="helper">Load the college football slate, start with the recommended games, confirm every spread, review the final card, and save it as a draft. Nothing publishes until you approve it.</p>
+              <p class="helper">Load games only after opening the draft week you want to build. The selected week stays separate from Week 1 until you publish it.</p>
             </div>
+            <span id="builderWeekContext" class="builder-week-context">BUILDING WEEK 1</span>
           </div>
           <div class="slate-builder-controls">
             <label><span>Season</span><input id="importSeason" type="number" min="2020" max="2100" value="2026"></label>
@@ -441,6 +461,6 @@
 </footer>
 
 
-<script type="module" src="app-v7.0.12.js"></script>
+<script type="module" src="app-v7.0.14.js"></script>
 </body>
 </html>
