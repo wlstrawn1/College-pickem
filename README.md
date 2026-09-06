@@ -1,4 +1,4 @@
-# College Pick’em V7.0.9 — Historical Week 1 Import Hardening
+# College Pick’em V7.0.10 — Historical Week 1 Import Hardening
 
 This build fixes the Week 1 Google Forms import when the Week 1 game objects stored in Firestore use a different order or slightly different team labels.
 
@@ -13,3 +13,10 @@ Changes:
 - All V7.0.8 features remain.
 
 No Firestore rules change is required.
+
+
+## V7.0.10 fix
+- Historical Week 1 importer now includes an explicit resolver for every code used by the original 2026 Google Form.
+- Covers CLEM/LSU, UM/WMU, UF/FAU, UCLA/CAL, WAS/WSU, and every other Week 1 response code.
+- Preview errors now include the raw unrecognized value for easier diagnosis.
+- Preview displays the historical importer version so browser-cache issues are easy to spot.
