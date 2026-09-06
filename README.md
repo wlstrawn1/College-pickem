@@ -1,11 +1,12 @@
-# College Pick'em V7.0.22
+# College Pick'em V7.0.23
 
-New banner, right-sized.
+Whole banner + weekly rank/record.
 
 Changes:
-- Swapped in the new mascot/conference-logo banner as the site hero image (compressed from a 2.3MB PNG to a 310KB JPG — same look, much lighter page load).
-- Fixed the actual cause of the oversized banner: three stacked, conflicting CSS rules had accumulated over past versions (V6.7.0, V6.8.1, V6.8.2), and the last one used `!important` to force the hero to `height:auto` at its full native aspect ratio with no cap — that's why it kept growing to dominate the page regardless of screen size. Consolidated into one rule with a real height cap: roughly 90–150px on desktop, 100px on phones, scaling smoothly in between via `clamp()`.
-- Removed the three now-unused old banner image files from the project (`college-pickem-newspaper-banner.png`, `cfb-pickem-banner.png`, `sec-pickem-banner-v2.png`) since nothing referenced them anymore.
-- Includes all V7.0.21 functionality (kickoff-time backfill from the ESPN feed).
+- Banner now shows the full image with nothing cropped off (switched `object-fit` from `cover` to `contain`). The banner box itself stays the same small size as v7.0.22 — the image now letterboxes within it (dark bars left/right) instead of having its top/bottom sliced off.
+- The "Welcome" summary card now shows both season-long and current-week stats: Season Rank / Season Points / Season ATS stay as before, and a new section states the current week by name and shows Week Record and Week Rank for that week specifically.
+- Week Rank respects the same privacy rule as Weekly Tracking: before the pick lock, it shows "Unlocks at lock" instead of a number, since ranking requires comparing against other players' still-hidden picks. After lock (or for the commissioner), it shows "#N of M".
+- This card now refreshes every time you switch tabs, switch weeks, or submit picks, so it stays current "as you move between screens."
+- Includes all V7.0.22 functionality.
 
 No Firestore rules changes are required.
