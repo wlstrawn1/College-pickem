@@ -1,11 +1,12 @@
-# College Pick'em V7.0.49
+# College Pick'em V7.0.51
 
-Tiebreak column now shows which team is which.
+Edit a single player's picks directly.
 
-Changes:
-- Fixed: the Tiebreak column showed raw numbers like "21-14" with no indication of which number belonged to which team, so it was meaningless without cross-referencing the Game of the Week separately.
-- Added the matchup as a small gold label under the "Tiebreak" header itself (e.g. "Georgia Tech-Colorado"), establishing the score order once instead of repeating team names in all 28 rows. Each row's numbers now read left-to-right in that same order.
-- Hovering the header also shows the full explanation (which team's score comes first, and that margin error appears once that game is final).
-- Includes all V7.0.48 functionality (tiebreak shown for every player).
+What's new:
+- Admin tab → Submitted Entries → each row now has an "Edit Picks" button alongside "Delete Entry."
+- Clicking it opens an editor right there with a dropdown per game (No Pick / dog / favorite), pre-filled with their current pick, plus their Game of the Week tiebreaker prediction if this week has one.
+- Save writes directly to that player's entry — no CSV, no re-import, no risk of the synthetic-ID duplication issue that comes with re-running the historical import. Works for both real accounts and still-unlinked historical entries, and works regardless of whether the week is locked, since this is an admin action.
+- Season Leaderboard, Weekly Tracking, and (if you're editing your own current week) My Picks all refresh automatically after saving.
+- Includes all V7.0.50 functionality (bulk-clear entries for a whole-week reimport).
 
-No Firestore rules changes are required.
+No Firestore rules changes are required — admin write access to any entry, regardless of lock state, was already covered by the existing rules.
