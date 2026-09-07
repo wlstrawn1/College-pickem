@@ -1,11 +1,11 @@
-# College Pick'em V7.0.48
+# College Pick'em V7.0.49
 
-Show everyone's tiebreaker prediction.
+Tiebreak column now shows which team is which.
 
 Changes:
-- The Tiebreak column in Weekly Tracking now shows every player's Game of the Week prediction (e.g. "27-34"), not just the players whose tiebreak decided a top-3 finish.
-- Margin error only appears (as a small second line under the prediction) once that tiebreaker game is actually final — can't compute an error against a score that hasn't happened yet. Before final, you just see everyone's raw guess.
-- Tightened the column font size further (11px prediction, 9px margin-error line) and narrowed the column width slightly, since it's now populated for every row instead of just a few.
-- Includes all V7.0.47 functionality (corrected margin-of-victory tiebreak math).
+- Fixed: the Tiebreak column showed raw numbers like "21-14" with no indication of which number belonged to which team, so it was meaningless without cross-referencing the Game of the Week separately.
+- Added the matchup as a small gold label under the "Tiebreak" header itself (e.g. "Georgia Tech-Colorado"), establishing the score order once instead of repeating team names in all 28 rows. Each row's numbers now read left-to-right in that same order.
+- Hovering the header also shows the full explanation (which team's score comes first, and that margin error appears once that game is final).
+- Includes all V7.0.48 functionality (tiebreak shown for every player).
 
 No Firestore rules changes are required.
