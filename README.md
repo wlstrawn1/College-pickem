@@ -1,12 +1,11 @@
-# College Pick'em V7.0.51
+# College Pick'em V7.0.52
 
-Edit a single player's picks directly.
+Games now display in kickoff order.
 
-What's new:
-- Admin tab → Submitted Entries → each row now has an "Edit Picks" button alongside "Delete Entry."
-- Clicking it opens an editor right there with a dropdown per game (No Pick / dog / favorite), pre-filled with their current pick, plus their Game of the Week tiebreaker prediction if this week has one.
-- Save writes directly to that player's entry — no CSV, no re-import, no risk of the synthetic-ID duplication issue that comes with re-running the historical import. Works for both real accounts and still-unlinked historical entries, and works regardless of whether the week is locked, since this is an admin action.
-- Season Leaderboard, Weekly Tracking, and (if you're editing your own current week) My Picks all refresh automatically after saving.
-- Includes all V7.0.50 functionality (bulk-clear entries for a whole-week reimport).
+The cause: gamesForWeek() returned games in whatever order they were selected during the admin's "Load ESPN Slate" builder — not chronological. Week 1 had its own special-cased fixed order (matching the original hand-built slate), but no such ordering existed for any other week, including Week 2.
 
-No Firestore rules changes are required — admin write access to any entry, regardless of lock state, was already covered by the existing rules.
+The fix: for every week except Week 1 (which keeps its existing curated order), games now sort by actual kickoff time (ascending) using the date already stored on each game from the ESPN import. This flows through everywhere games are listed — Picks, My Picks, Weekly Tracking columns, and Results — automatically, since they all pull from the same gamesForWeek() function.
+
+Includes all V7.0.51 functionality (Edit Picks admin tool).
+
+No Firestore rules changes are required.
